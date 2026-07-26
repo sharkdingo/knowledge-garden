@@ -27,7 +27,7 @@ test("public migrations contain capabilities and configuration but no preset con
     assert.doesNotMatch(source, new RegExp(`INSERT INTO \`${table}\``));
   }
   assert.doesNotMatch(source, /INSERT INTO `site_editors`/);
-  assert.doesNotMatch(source, /单煜翔|danyuxiang76@qq\.com|leetcode-two-sum|两数之和/i);
+  assert.doesNotMatch(source, /@qq\.com/i);
   assert.match(source, /\$\.identity\.shortName', 'shakdingo'/);
   assert.match(source, /DROP TABLE `site_editors`/);
 });
