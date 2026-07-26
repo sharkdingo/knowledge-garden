@@ -2,6 +2,7 @@ import type { StudioArticleInput } from "../../../../domain/studio";
 import { StudioValidationError } from "../../../../application/studio-article-service";
 import { contentServices } from "../../../../composition/content";
 import { authorizeStudioApi } from "../../../../studio/studio-auth";
+import { readStudioJson } from "../../../../studio/studio-request";
 
 export async function PUT(
   request: Request,
@@ -11,7 +12,7 @@ export async function PUT(
   if (!access.authorized) return access.response;
   const { slug } = await params;
   try {
-    const input = await request.json() as StudioArticleInput;
+    const input = await readStudioJson<StudioArticleInput>(request);
     await contentServices.studio.articles.update(slug, input);
     return Response.json(
       { ok: true, slug },

@@ -2,15 +2,16 @@ import type { StudioArticleInput } from "../../../domain/studio";
 import { StudioValidationError } from "../../../application/studio-article-service";
 import { contentServices } from "../../../composition/content";
 import { authorizeStudioApi } from "../../../studio/studio-auth";
+import { readStudioJson } from "../../../studio/studio-request";
 
 export async function POST(request: Request) {
   const access = await authorizeStudioApi();
   if (!access.authorized) return access.response;
   try {
-    const input = await request.json() as StudioArticleInput;
-    await contentServices.studio.articles.create(input);
+    const input = await readStudioJson<StudioArticleInput>(request);
+    const slug = await contentServices.studio.articles.create(input);
     return Response.json(
-      { ok: true, slug: input.slug.trim().toLowerCase() },
+      { ok: true, slug },
       { status: 201, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

@@ -1,13 +1,14 @@
 import type { StudioSiteSettings } from "../../../domain/studio";
-import { StudioValidationError } from "../../../application/studio-article-service";
+import { StudioValidationError } from "../../../application/studio-validation";
 import { contentServices } from "../../../composition/content";
 import { authorizeStudioApi } from "../../../studio/studio-auth";
+import { readStudioJson } from "../../../studio/studio-request";
 
 export async function PUT(request: Request) {
   const access = await authorizeStudioApi();
   if (!access.authorized) return access.response;
   try {
-    const settings = await request.json() as StudioSiteSettings;
+    const settings = await readStudioJson<StudioSiteSettings>(request);
     await contentServices.studio.site.update(settings);
     return Response.json(
       { ok: true },

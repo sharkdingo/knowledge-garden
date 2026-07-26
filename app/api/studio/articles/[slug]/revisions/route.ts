@@ -1,6 +1,7 @@
 import { StudioValidationError } from "../../../../../application/studio-article-service";
 import { contentServices } from "../../../../../composition/content";
 import { authorizeStudioApi } from "../../../../../studio/studio-auth";
+import { readStudioJson } from "../../../../../studio/studio-request";
 
 export async function GET(
   _request: Request,
@@ -24,9 +25,14 @@ export async function POST(
   if (!access.authorized) return access.response;
   const { slug } = await params;
   try {
-    const body = await request.json() as { revisionId?: string };
-    if (!body.revisionId) throw new StudioValidationError("缺少需要恢复的版本。");
-    const article = await contentServices.studio.articles.restore(slug, body.revisionId);
+    const body = await readStudioJson<{ revisionId?: string }>(request);
+    if (typeof body.revisionId !== "string" || !body.revisionId.trim()) {
+      throw new StudioValidationError("缺少需要恢复的版本。");
+    }
+    const article = await contentServices.studio.articles.restore(
+      slug,
+      body.revisionId.trim(),
+    );
     return Response.json(
       { ok: true, article },
       { headers: { "Cache-Control": "no-store" } },

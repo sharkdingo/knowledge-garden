@@ -8,8 +8,8 @@ import { StudioValidationError } from "./studio-validation";
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const VISUALS = new Set(["iot", "canvas", "agent"]);
 
-function required(value: string, label: string, max: number): string {
-  const normalized = value.trim();
+function required(value: unknown, label: string, max: number): string {
+  const normalized = typeof value === "string" ? value.trim() : "";
   if (!normalized) throw new StudioValidationError(`${label}不能为空。`);
   if (normalized.length > max) {
     throw new StudioValidationError(`${label}不能超过 ${max} 个字符。`);
@@ -17,8 +17,8 @@ function required(value: string, label: string, max: number): string {
   return normalized;
 }
 
-function optionalUrl(value: string | undefined, label: string): string | undefined {
-  const normalized = value?.trim();
+function optionalUrl(value: unknown, label: string): string | undefined {
+  const normalized = typeof value === "string" ? value.trim() : "";
   if (!normalized) return undefined;
   try {
     const url = new URL(normalized);
@@ -30,7 +30,10 @@ function optionalUrl(value: string | undefined, label: string): string | undefin
 }
 
 function normalize(input: StudioProjectInput): StudioProjectInput {
-  const id = input.id.trim().toLowerCase();
+  if (!input || typeof input !== "object" || !Array.isArray(input.stack)) {
+    throw new StudioValidationError("项目结构不完整，请刷新页面后重试。");
+  }
+  const id = required(input.id, "项目 ID", 80).toLowerCase();
   if (!ID_PATTERN.test(id) || id.length > 80) {
     throw new StudioValidationError("项目 ID 只能包含小写字母、数字和单个连字符。");
   }
@@ -40,11 +43,17 @@ function normalize(input: StudioProjectInput): StudioProjectInput {
   if (!Number.isInteger(input.sortOrder) || input.sortOrder < 0 || input.sortOrder > 9999) {
     throw new StudioValidationError("排序需要是 0–9999 之间的整数。");
   }
-  if (!/^\d{4}(?:[.-]\d{2})?(?:[.-]\d{2})?$/.test(input.updated.trim())) {
+  const updated = required(input.updated, "更新日期", 10);
+  if (!/^\d{4}(?:[.-]\d{2})?(?:[.-]\d{2})?$/.test(updated)) {
     throw new StudioValidationError("更新日期请使用 YYYY、YYYY.MM 或 YYYY.MM.DD。");
   }
-  const stack = [...new Set(input.stack.map((item) => item.trim()).filter(Boolean))];
+  const stack = [...new Set(input.stack
+    .map((item) => typeof item === "string" ? item.trim() : "")
+    .filter(Boolean))];
   if (!stack.length) throw new StudioValidationError("技术栈至少需要一项。");
+  if (stack.some((item) => item.length > 60)) {
+    throw new StudioValidationError("单项技术栈不能超过 60 个字符。");
+  }
   return {
     ...input,
     id,
@@ -55,8 +64,11 @@ function normalize(input: StudioProjectInput): StudioProjectInput {
     statusLabel: required(input.statusLabel, "状态说明", 80),
     category: required(input.category, "项目分类", 80),
     stack: stack.slice(0, 12),
-    updated: input.updated.trim(),
-    relatedArticleSlug: input.relatedArticleSlug?.trim() || undefined,
+    updated,
+    relatedArticleSlug:
+      typeof input.relatedArticleSlug === "string"
+        ? input.relatedArticleSlug.trim() || undefined
+        : undefined,
     repositoryUrl: optionalUrl(input.repositoryUrl, "代码仓库地址"),
     demoUrl: optionalUrl(input.demoUrl, "演示地址"),
   };
@@ -73,12 +85,13 @@ export class StudioProjectService {
     return this.repository.findStudioProject(id);
   }
 
-  async create(input: StudioProjectInput) {
+  async create(input: StudioProjectInput): Promise<string> {
     const normalized = normalize(input);
     if (await this.repository.findStudioProject(normalized.id)) {
       throw new StudioValidationError("这个项目 ID 已经被使用。");
     }
     await this.repository.createStudioProject(normalized);
+    return normalized.id;
   }
 
   async update(id: string, input: StudioProjectInput) {

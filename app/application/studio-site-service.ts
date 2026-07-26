@@ -71,7 +71,11 @@ export class StudioSiteService {
     }
     const modeIds = new Set<string>();
     const modes = settings.daily.modes.slice(0, 6).map((mode, index) => {
-      const id = mode.id.trim().toLowerCase();
+      if (!mode || typeof mode !== "object") {
+        throw new StudioValidationError(`第 ${index + 1} 个访客状态结构不完整。`);
+      }
+      const id = text(mode.id, `第 ${index + 1} 个访客状态 ID`, 60)
+        .toLowerCase();
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) || modeIds.has(id)) {
         throw new StudioValidationError(`第 ${index + 1} 个访客状态 ID 无效或重复。`);
       }
@@ -93,7 +97,11 @@ export class StudioSiteService {
     }
     const reactionIds = new Set<string>();
     const reactionOptions = settings.engagement.options.map((option, index) => {
-      const id = option.id.trim().toLowerCase();
+      if (!option || typeof option !== "object") {
+        throw new StudioValidationError(`第 ${index + 1} 个文章回应结构不完整。`);
+      }
+      const id = text(option.id, `第 ${index + 1} 个文章回应 ID`, 60)
+        .toLowerCase();
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) || reactionIds.has(id)) {
         throw new StudioValidationError(`第 ${index + 1} 个文章回应 ID 无效或重复。`);
       }
@@ -119,7 +127,11 @@ export class StudioSiteService {
     }
     const platformIds = new Set<string>();
     const platformPresets = settings.algorithms.authoring.platformPresets.map((preset, index) => {
-      const id = preset.id.trim().toLowerCase();
+      if (!preset || typeof preset !== "object") {
+        throw new StudioValidationError(`第 ${index + 1} 个平台预设结构不完整。`);
+      }
+      const id = text(preset.id, `第 ${index + 1} 个平台 ID`, 60)
+        .toLowerCase();
       if (!IDENTIFIER.test(id) || platformIds.has(id)) {
         throw new StudioValidationError(`第 ${index + 1} 个平台 ID 无效或重复。`);
       }
@@ -130,15 +142,21 @@ export class StudioSiteService {
         sourceHint: text(preset.sourceHint, `第 ${index + 1} 个平台链接提示`, 240),
       };
     });
-    const defaultPlatformId = settings.algorithms.authoring.defaultPlatformId
-      .trim()
-      .toLowerCase();
+    const defaultPlatformId = text(
+      settings.algorithms.authoring.defaultPlatformId,
+      "默认题目平台",
+      60,
+    ).toLowerCase();
     if (!platformIds.has(defaultPlatformId)) {
       throw new StudioValidationError("默认题目平台必须来自平台预设。");
     }
     const languageIds = new Set<string>();
     const languagePresets = settings.algorithms.authoring.languagePresets.map((preset, index) => {
-      const id = preset.id.trim().toLowerCase();
+      if (!preset || typeof preset !== "object") {
+        throw new StudioValidationError(`第 ${index + 1} 个语言预设结构不完整。`);
+      }
+      const id = text(preset.id, `第 ${index + 1} 个语言 ID`, 60)
+        .toLowerCase();
       if (!IDENTIFIER.test(id) || languageIds.has(id)) {
         throw new StudioValidationError(`第 ${index + 1} 个语言 ID 无效或重复。`);
       }

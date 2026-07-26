@@ -3,17 +3,22 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("Studio write access is authenticated and authorized from runtime configuration", async () => {
-  const [auth, articleRoute, siteRoute, accessRepository, migration] = await Promise.all([
+  const [auth, articleRoute, siteRoute, requestReader, accessRepository, migration] = await Promise.all([
     readFile("app/studio/studio-auth.ts", "utf8"),
     readFile("app/api/studio/articles/route.ts", "utf8"),
     readFile("app/api/studio/site/route.ts", "utf8"),
+    readFile("app/studio/studio-request.ts", "utf8"),
     readFile("app/infrastructure/environment-studio-access-repository.ts", "utf8"),
     readFile("drizzle/0005_material_zemo.sql", "utf8"),
   ]);
   assert.match(auth, /requireChatGPTUser/);
   assert.match(auth, /canEdit\(user\.email\)/);
   assert.match(articleRoute, /authorizeStudioApi/);
+  assert.match(articleRoute, /readStudioJson/);
   assert.match(siteRoute, /authorizeStudioApi/);
+  assert.match(siteRoute, /readStudioJson/);
+  assert.match(requestReader, /请求内容不是有效的 JSON/);
+  assert.match(requestReader, /请求内容必须是一个对象/);
   assert.match(accessRepository, /STUDIO_EDITOR_EMAILS/);
   assert.doesNotMatch(accessRepository, /@/);
   assert.match(migration, /CREATE TABLE `site_editors`/);

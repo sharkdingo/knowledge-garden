@@ -2,6 +2,7 @@ import { StudioValidationError } from "../../../../application/studio-validation
 import { contentServices } from "../../../../composition/content";
 import type { StudioProjectInput } from "../../../../domain/studio";
 import { authorizeStudioApi } from "../../../../studio/studio-auth";
+import { readStudioJson } from "../../../../studio/studio-request";
 
 export async function PUT(
   request: Request,
@@ -11,7 +12,7 @@ export async function PUT(
   if (!access.authorized) return access.response;
   const { id } = await params;
   try {
-    const input = await request.json() as StudioProjectInput;
+    const input = await readStudioJson<StudioProjectInput>(request);
     await contentServices.studio.projects.update(id, input);
     return Response.json({ ok: true, id }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

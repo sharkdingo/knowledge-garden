@@ -66,6 +66,9 @@ function normalize(input: StudioAlgorithmProblemInput): StudioAlgorithmProblemIn
   const solutionIds = new Set<string>();
   const codeIds = new Set<string>();
   const solutions = input.solutions.map((solution, solutionIndex) => {
+    if (!solution || typeof solution !== "object") {
+      throw new StudioValidationError(`第 ${solutionIndex + 1} 个解法结构不完整。`);
+    }
     const id = text(solution.id, `第 ${solutionIndex + 1} 个解法 ID`, 100, true).toLowerCase();
     if (!IDENTIFIER.test(id) || solutionIds.has(id)) {
       throw new StudioValidationError(`第 ${solutionIndex + 1} 个解法 ID 无效或重复。`);
@@ -79,6 +82,11 @@ function normalize(input: StudioAlgorithmProblemInput): StudioAlgorithmProblemIn
       .filter(Boolean);
     const codeBlocks = (Array.isArray(solution.codeBlocks) ? solution.codeBlocks : [])
       .map((block, codeIndex) => {
+        if (!block || typeof block !== "object") {
+          throw new StudioValidationError(
+            `第 ${solutionIndex + 1} 个解法的第 ${codeIndex + 1} 份代码结构不完整。`,
+          );
+        }
         const codeId = text(
           block.id,
           `第 ${solutionIndex + 1} 个解法的第 ${codeIndex + 1} 份代码 ID`,
@@ -116,6 +124,9 @@ function normalize(input: StudioAlgorithmProblemInput): StudioAlgorithmProblemIn
   }
   const referenceIds = new Set<string>();
   const references = input.references.map((reference, referenceIndex) => {
+    if (!reference || typeof reference !== "object") {
+      throw new StudioValidationError(`第 ${referenceIndex + 1} 条引用结构不完整。`);
+    }
     const id = text(reference.id, `第 ${referenceIndex + 1} 条引用 ID`, 120, true)
       .toLowerCase();
     if (!IDENTIFIER.test(id) || referenceIds.has(id)) {

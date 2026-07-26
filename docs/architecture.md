@@ -32,8 +32,9 @@ This keeps SOLID boundaries practical:
 | --- | --- |
 | Server rendering and routes | Stateless Cloudflare Worker |
 | Articles, algorithm notes, taxonomy, projects, site profile | D1 |
-| Editor allowlist, recovery drafts, revisions, reader signals, and authoring writes | D1 |
-| Schema and canonical initial content | Versioned Drizzle migrations |
+| Recovery drafts, revisions, reader signals, and authoring writes | D1 |
+| Editor allowlist | Runtime secret configuration |
+| Schema and canonical site configuration | Versioned Drizzle migrations |
 | Images and compiled assets | Edge-served deployment assets |
 | Device-only theme, reading preference, and anonymous reader key | `localStorage` |
 | Health/readiness | `/api/health` with a live D1 query |
@@ -90,8 +91,11 @@ slug-targeted public query rather than loading the complete archive.
 `/studio` is a sign-in-gated authoring surface. Authentication comes from the
 hosting platform; authorization is checked against the runtime-only
 `STUDIO_EDITOR_EMAILS` allowlist for every page and write endpoint. This keeps
-editor identities out of public source and content migrations. Studio pages call application services, while the D1
-write adapter owns prepared statements and atomic article/relationship batches.
+editor identities out of public source and content migrations. On localhost,
+an explicit loopback-only identity shortcut replaces the unavailable hosted
+sign-in endpoint while preserving the same authorization check. Studio pages
+call application services, while the D1 write adapter owns prepared statements
+and atomic article/relationship batches.
 Automatic recovery writes into `article_drafts`, not the public article record.
 Explicit saves create a bounded revision snapshot, and restore operations pass
 through the same validation and repository boundary as ordinary updates.
@@ -135,7 +139,11 @@ existing domain ports when a real need appears.
 
 1. Change `db/schema.ts`.
 2. Generate and inspect Drizzle SQL.
-3. Add or update canonical content through a migration.
+3. Keep migrations free of sample visitor content.
 4. Keep queries inside `app/infrastructure`.
-5. Run type checking, lint, build, migration integrity tests, and interaction
-   checks before deployment.
+5. Rebuild a clean local D1 and run lint, build, migration integrity tests, and
+   interaction checks before deployment.
+
+Local D1 and the production D1 are separate operational stores. Vite and the
+local migration CLI share `.wrangler/state/v3`; the hosting platform applies
+the same packaged migration directory to production.

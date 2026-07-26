@@ -1,0 +1,6 @@
+# Copy this file to .dev.vars and replace the values with your own local identity.
+# The local Studio bypass is accepted only on localhost/127.0.0.1.
+STUDIO_EDITOR_EMAILS=you@example.com
+LOCAL_STUDIO_AUTH=true
+LOCAL_STUDIO_USER_EMAIL=you@example.com
+LOCAL_STUDIO_USER_NAME=Local editor

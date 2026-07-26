@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { glob, readFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
@@ -19,24 +19,9 @@ function contrastRatio(left, right) {
 async function migratedDatabase() {
   const database = new DatabaseSync(":memory:");
   database.exec("PRAGMA foreign_keys = ON");
-  for (const file of [
-    "drizzle/0000_equal_ricochet.sql",
-    "drizzle/0001_thin_argent.sql",
-    "drizzle/0002_playground.sql",
-    "drizzle/0003_arcade-games.sql",
-    "drizzle/0004_ui-ux-audit.sql",
-    "drizzle/0005_material_zemo.sql",
-    "drizzle/0006_knowledge_constellation.sql",
-    "drizzle/0007_visitor_journey.sql",
-    "drizzle/0008_cold_owl.sql",
-    "drizzle/0009_daily_signal.sql",
-    "drizzle/0010_young_magik.sql",
-    "drizzle/0011_strong_toxin.sql",
-    "drizzle/0012_clever_luckman.sql",
-    "drizzle/0013_first_algorithm_note.sql",
-    "drizzle/0014_peaceful_purple_man.sql",
-    "drizzle/0015_public-source-cleanup.sql",
-  ]) {
+  const migrations = [];
+  for await (const file of glob("drizzle/*.sql")) migrations.push(file);
+  for (const file of migrations.sort()) {
     const migration = await readFile(file, "utf8");
     for (const statement of migration.split("--> statement-breakpoint")) {
       if (statement.trim()) database.exec(statement);

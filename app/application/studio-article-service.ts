@@ -12,8 +12,8 @@ const STATUS = new Set(["draft", "scheduled", "published", "archived"]);
 
 export { StudioValidationError } from "./studio-validation";
 
-function required(value: string, label: string, max: number): string {
-  const normalized = value.trim();
+function required(value: unknown, label: string, max: number): string {
+  const normalized = typeof value === "string" ? value.trim() : "";
   if (!normalized) throw new StudioValidationError(`${label}不能为空。`);
   if (normalized.length > max) {
     throw new StudioValidationError(`${label}不能超过 ${max} 个字符。`);
@@ -21,8 +21,8 @@ function required(value: string, label: string, max: number): string {
   return normalized;
 }
 
-function optional(value: string, max: number): string {
-  const normalized = value.trim();
+function optional(value: unknown, max: number): string {
+  const normalized = typeof value === "string" ? value.trim() : "";
   if (normalized.length > max) {
     throw new StudioValidationError(`可选内容不能超过 ${max} 个字符。`);
   }
@@ -30,12 +30,24 @@ function optional(value: string, max: number): string {
 }
 
 function normalize(input: StudioArticleInput): StudioArticleInput {
-  const slug = input.slug.trim().toLowerCase();
+  if (
+    !input ||
+    typeof input !== "object" ||
+    !Array.isArray(input.calloutLines) ||
+    !Array.isArray(input.tags) ||
+    !Array.isArray(input.sections)
+  ) {
+    throw new StudioValidationError("文章结构不完整，请刷新页面后重试。");
+  }
+  const slug = required(input.slug, "Slug", 80).toLowerCase();
   if (!SLUG_PATTERN.test(slug) || slug.length > 80) {
     throw new StudioValidationError("Slug 只能包含小写字母、数字和单个连字符。");
   }
   if (!STATUS.has(input.status)) throw new StudioValidationError("文章状态无效。");
-  if (!/^\d{4}-\d{2}-\d{2}/.test(input.publishedAt)) {
+  if (
+    typeof input.publishedAt !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}/.test(input.publishedAt)
+  ) {
     throw new StudioValidationError("发布日期格式无效。");
   }
   if (!Number.isInteger(input.minutes) || input.minutes < 1 || input.minutes > 240) {
@@ -46,14 +58,18 @@ function normalize(input: StudioArticleInput): StudioArticleInput {
 
   const sectionIds = new Set<string>();
   const sections = input.sections.map((section, index) => {
-    const id = section.id.trim().toLowerCase();
+    if (!section || typeof section !== "object" || !Array.isArray(section.paragraphs)) {
+      throw new StudioValidationError(`第 ${index + 1} 个章节结构不完整。`);
+    }
+    const id = required(section.id, `第 ${index + 1} 个章节锚点`, 80)
+      .toLowerCase();
     if (!SLUG_PATTERN.test(id)) {
       throw new StudioValidationError(`第 ${index + 1} 个章节的锚点格式无效。`);
     }
     if (sectionIds.has(id)) throw new StudioValidationError("章节锚点不能重复。");
     sectionIds.add(id);
     const paragraphs = section.paragraphs
-      .map((paragraph) => paragraph.trim())
+      .map((paragraph) => optional(paragraph, 10_000))
       .filter(Boolean);
     if (requiresPublicationContent && !paragraphs.length) {
       throw new StudioValidationError(`第 ${index + 1} 个章节至少需要一段正文。`);
@@ -85,8 +101,12 @@ function normalize(input: StudioArticleInput): StudioArticleInput {
       : optional(input.lead, 600),
     quote: optional(input.quote, 500),
     calloutLabel: optional(input.calloutLabel, 80),
-    calloutLines: input.calloutLines.map((line) => line.trim()).filter(Boolean),
-    tags: [...new Set(input.tags.map((tag) => tag.trim()).filter(Boolean))].slice(0, 12),
+    calloutLines: input.calloutLines
+      .map((line) => optional(line, 500))
+      .filter(Boolean),
+    tags: [
+      ...new Set(input.tags.map((tag) => optional(tag, 60)).filter(Boolean)),
+    ].slice(0, 12),
     sections,
   };
 }
@@ -110,13 +130,14 @@ export class StudioArticleService {
     return [...await this.repository.listStudioCategories()];
   }
 
-  async create(input: StudioArticleInput) {
+  async create(input: StudioArticleInput): Promise<string> {
     const normalized = normalize(input);
     if (await this.repository.findStudioArticle(normalized.slug)) {
       throw new StudioValidationError("这个 Slug 已经被使用。");
     }
     await this.repository.createStudioArticle(normalized);
     await this.repository.deleteStudioArticleDraft(normalized.slug);
+    return normalized.slug;
   }
 
   async update(slug: string, input: StudioArticleInput) {

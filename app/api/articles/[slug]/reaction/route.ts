@@ -40,11 +40,11 @@ export async function GET(request: Request, { params }: Context) {
 export async function POST(request: Request, { params }: Context) {
   try {
     const { slug } = await params;
-    const input = await request.json() as ReactionInput;
+    const input = await request.json() as ReactionInput | null;
     const snapshot = await contentServices.engagement.react(
       slug,
-      textValue(input.visitorKey),
-      textValue(input.reactionId),
+      textValue(input?.visitorKey),
+      textValue(input?.reactionId),
     );
     return Response.json(snapshot, { headers: noStore });
   } catch (error) {
@@ -55,10 +55,10 @@ export async function POST(request: Request, { params }: Context) {
 export async function DELETE(request: Request, { params }: Context) {
   try {
     const { slug } = await params;
-    const input = await request.json() as ReactionInput;
+    const input = await request.json() as ReactionInput | null;
     const snapshot = await contentServices.engagement.remove(
       slug,
-      textValue(input.visitorKey),
+      textValue(input?.visitorKey),
     );
     return Response.json(snapshot, { headers: noStore });
   } catch (error) {
