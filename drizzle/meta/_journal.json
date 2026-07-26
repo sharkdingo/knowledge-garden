@@ -1,0 +1,118 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784778838472,
+      "tag": "0000_equal_ricochet",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784778873732,
+      "tag": "0001_thin_argent",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784780386469,
+      "tag": "0002_playground",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784781625886,
+      "tag": "0003_arcade-games",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784783495472,
+      "tag": "0004_ui-ux-audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1784795528468,
+      "tag": "0005_material_zemo",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784795700000,
+      "tag": "0006_knowledge_constellation",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1784797500000,
+      "tag": "0007_visitor_journey",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784801028078,
+      "tag": "0008_cold_owl",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1784801916321,
+      "tag": "0009_daily_signal",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1784803870833,
+      "tag": "0010_young_magik",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1784804876596,
+      "tag": "0011_strong_toxin",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1785041822573,
+      "tag": "0012_clever_luckman",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1785055500000,
+      "tag": "0013_first_algorithm_note",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1785056176828,
+      "tag": "0014_peaceful_purple_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1785061078951,
+      "tag": "0015_public-source-cleanup",
+      "breakpoints": true
+    }
+  ]
+}

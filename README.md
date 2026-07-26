@@ -1,4 +1,4 @@
-# 单煜翔的知识花园
+# shakdingo 的知识花园
 
 A cloud-native personal portfolio, writing system, and algorithm notebook. The
 public reading experience and the authenticated Studio share one D1 content
@@ -75,8 +75,9 @@ interaction contracts.
 - Production build validation: `scripts/build-verified.sh`
 
 The `DB` D1 binding is required. Authentication is supplied by the hosting
-platform; Studio additionally checks the authenticated email against
-`site_editors`.
+platform. Studio authorization reads the comma-separated
+`STUDIO_EDITOR_EMAILS` runtime value; editor identities are never committed to
+source or stored in content migrations.
 
 Do not commit local environment files, runtime caches, build output, or
 credentials. They are excluded by `.gitignore`.
@@ -105,8 +106,9 @@ through:
 
 `app/chatgpt-auth.ts` wraps those headers and the platform-owned sign-in,
 sign-out, and callback paths. Studio routes require identity and then check the
-email against the D1 `site_editors` allowlist. Every Studio write endpoint
-performs the same authorization check on the server.
+email against `STUDIO_EDITOR_EMAILS`. Every Studio write endpoint performs the
+same authorization check on the server. Keep that value in hosted runtime
+configuration, never in `.env` files committed to Git.
 
 SIWC establishes identity; hosting access policy and the application allowlist
 remain responsible for access control.
