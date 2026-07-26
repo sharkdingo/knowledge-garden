@@ -1,4 +1,4 @@
-# shakdingo 的知识花园
+# sharkdingo 的知识花园
 
 A cloud-native personal portfolio, writing system, and algorithm notebook. The
 public reading experience and the authenticated Studio share one D1 content

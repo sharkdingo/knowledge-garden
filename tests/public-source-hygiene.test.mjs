@@ -28,7 +28,7 @@ test("public migrations contain capabilities and configuration but no preset con
   }
   assert.doesNotMatch(source, /INSERT INTO `site_editors`/);
   assert.doesNotMatch(source, /@qq\.com/i);
-  assert.match(source, /\$\.identity\.shortName', 'shakdingo'/);
+  assert.match(source, /\$\.identity\.shortName', 'sharkdingo'/);
   assert.match(source, /DROP TABLE `site_editors`/);
 });
 

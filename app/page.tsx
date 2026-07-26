@@ -117,7 +117,7 @@ export default async function Home() {
               eyebrow="KNOWLEDGE GARDEN / READY"
               title="第一批真实内容正在生长"
               description="这里不会用示例文章填满空白。文章、题解与项目从内容工作室发布后，会自动进入首页、搜索和知识星图。"
-              action={{ href: "/about", label: "先认识 shakdingo" }}
+              action={{ href: "/about", label: "先认识 sharkdingo" }}
             />
           )}
 

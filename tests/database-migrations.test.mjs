@@ -161,8 +161,8 @@ test("migrations create an empty production content graph with complete capabili
   assert.equal(database.prepare("SELECT COUNT(*) AS count FROM algorithm_references WHERE problem_slug = 'two-sum'").get().count, 0);
   database.exec("ROLLBACK");
   const profile = JSON.parse(database.prepare("SELECT value FROM site_settings WHERE key = 'profile'").get().value);
-  assert.equal(profile.identity.shortName, "shakdingo");
-  assert.equal(profile.about.name, "shakdingo");
+  assert.equal(profile.identity.shortName, "sharkdingo");
+  assert.equal(profile.about.name, "sharkdingo");
   assert.match(profile.playground.constellation.emptyTitle, /第一篇文章/);
   assert.equal(profile.playground.constellation.articleCount, 4);
   assert.equal(profile.playground.constellation.connectionsPerArticle, 2);
