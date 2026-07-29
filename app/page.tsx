@@ -1,7 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
 import { SiteShell } from "./components/site-shell";
-import { HomeExperience } from "./components/home-experience";
 import { ContinueReading } from "./components/continue-reading";
 import { DailySignal } from "./components/daily-signal";
 import { ContentEmptyState } from "./components/content-empty-state";
@@ -16,8 +14,7 @@ export default async function Home() {
     contentServices.discovery.getTaxonomy(),
     contentServices.site.getProfile(),
   ]);
-  const featured = articles.filter((article) => article.featured).slice(0, 3);
-  const startingArticle = featured[0] ?? articles[0];
+  const latestArticles = articles.slice(0, 5);
   const startingProject = projects[0];
   const hero = profile.hero;
   const home = profile.home;
@@ -29,46 +26,84 @@ export default async function Home() {
     config: profile.daily,
   });
   const hasPublishedContent = Boolean(articles.length || projects.length);
+  const issueNumber = String(daily?.dayOfYear ?? 1).padStart(3, "0");
 
   return (
     <SiteShell active="home">
       <main id="main-content" className="home-page">
-        <HomeExperience intro={hero.intro}>
-          <section className="intro-stage" aria-labelledby="hero-title">
-            <div className="intro-media" aria-hidden="true">
-              <Image src={hero.image} alt="" fill priority sizes="100vw" />
-            </div>
-            <div className="intro-shade" />
-            <div className="intro-grid" aria-hidden="true" />
-            <div className="intro-content">
-              <p className="eyebrow">{hero.eyebrow}</p>
+        <div className="page-shell editorial-home-shell">
+          <section className="editorial-hero" aria-labelledby="hero-title">
+            <aside className="editorial-index" aria-label={hero.eyebrow}>
+              <strong>{hero.eyebrow}</strong>
+              {daily && <time dateTime={daily.dateKey}>{daily.displayDate}</time>}
+              <span>{profile.about.location}</span>
+              <i aria-hidden="true" />
+            </aside>
+
+            <div className="editorial-hero-copy">
               <h1 id="hero-title">
                 {(hero.titleLines ?? [hero.title]).map((line) => <span key={line}>{line}</span>)}
               </h1>
               <p className="hero-lede">{hero.lead}</p>
-              <div className="hero-actions">
-                <Link className="button button-primary" href={hero.primaryAction.href}>
-                  {hero.primaryAction.label} <span aria-hidden="true">→</span>
+              <nav className="editorial-actions" aria-label={hero.scrollLabel}>
+                <Link href={hero.primaryAction.href}>
+                  {hero.primaryAction.label} <span aria-hidden="true">↗</span>
                 </Link>
-                <Link className="button button-glass" href={hero.secondaryAction.href}>
+                <Link href={hero.secondaryAction.href}>
                   {hero.secondaryAction.label}
                 </Link>
-              </div>
-              <div className="now-line" aria-label="当前正在构建">
-                <span aria-hidden="true" />
+              </nav>
+              <p className="editorial-now">
                 <small>{hero.nowLabel}</small>
-                <strong>{hero.nowValue}</strong>
-              </div>
+                <span>{hero.nowValue}</span>
+              </p>
             </div>
-            <p className="intro-caption">{hero.caption}</p>
-            <a className="scroll-cue" href="#garden">
-              <span>{hero.scrollLabel}</span><i aria-hidden="true" />
-            </a>
-          </section>
-        </HomeExperience>
 
-        <div id="garden" className="page-shell home-garden">
+            <strong className="editorial-issue" aria-hidden="true">{issueNumber}</strong>
+          </section>
+
+          <div id="garden" className="home-garden">
           <ContinueReading articles={articles} label={home.continueLabel} />
+
+          {latestArticles.length > 0 && (
+            <section className="featured-section home-latest" aria-labelledby="latest-writing-title">
+              <div className="section-heading-row">
+                <div>
+                  <p className="eyebrow">{profile.pages.writing.eyebrow}</p>
+                  <h2 id="latest-writing-title">{profile.pages.writing.title}</h2>
+                  <p>{profile.pages.writing.description}</p>
+                </div>
+                <Link href="/writing">
+                  {profile.pages.writing.title} <span aria-hidden="true">→</span>
+                </Link>
+              </div>
+              <div className="featured-list">
+                {latestArticles.map((article, index) => (
+                  <article className="article-card" key={article.slug}>
+                    <time dateTime={article.date}>{article.displayDate}</time>
+                    <div>
+                      <p>
+                        {article.featured && <strong>推荐 · </strong>}
+                        {article.category} · {article.minutes} 分钟
+                      </p>
+                      <h3><Link href={`/writing/${article.slug}`}>{article.title}</Link></h3>
+                      <p className="article-summary">{article.summary}</p>
+                    </div>
+                    <span className="article-number" aria-hidden="true">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <Link
+                      className="card-link"
+                      href={`/writing/${article.slug}`}
+                      aria-label={`阅读《${article.title}》`}
+                    >
+                      →
+                    </Link>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
 
           {daily && <DailySignal experience={daily} config={profile.daily} />}
 
@@ -79,14 +114,6 @@ export default async function Home() {
               <p>{home.description}</p>
             </header>
             <div className="home-start-grid">
-              {startingArticle && (
-                <Link className="home-start-card start-writing" href={`/writing/${startingArticle.slug}`}>
-                  <span>{home.writingLabel}</span>
-                  <strong>{startingArticle.title}</strong>
-                  <p>{startingArticle.summary}</p>
-                  <small>{startingArticle.category} · {startingArticle.minutes} 分钟阅读 <b aria-hidden="true">→</b></small>
-                </Link>
-              )}
               <section className="home-start-card start-topics" aria-labelledby="home-topics-title">
                 <span id="home-topics-title">{home.topicsLabel}</span>
                 <div>
@@ -109,41 +136,19 @@ export default async function Home() {
                 <span>{home.playgroundLabel}</span>
                 <strong>{profile.playground.constellation.title}</strong>
                 <p>{profile.playground.constellation.description}</p>
-                <small>每日内容图谱 <b aria-hidden="true">↗</b></small>
+                <small>{profile.playground.intro.eyebrow} <b aria-hidden="true">↗</b></small>
               </Link>
             </div>
           </section> : (
             <ContentEmptyState
-              eyebrow="KNOWLEDGE GARDEN / READY"
-              title="第一批真实内容正在生长"
-              description="这里不会用示例文章填满空白。文章、题解与项目从内容工作室发布后，会自动进入首页、搜索和知识星图。"
-              action={{ href: "/about", label: "先认识 sharkdingo" }}
+              eyebrow={home.eyebrow}
+              title={home.title}
+              description={home.description}
+              action={{ href: "/about", label: profile.about.intro.title }}
             />
           )}
 
-          {featured.length > 0 && <section className="featured-section" aria-labelledby="featured-title">
-            <div className="section-heading-row">
-              <div>
-                <p className="eyebrow">SELECTED WRITING</p>
-                <h2 id="featured-title">精选文章</h2>
-              </div>
-              <Link href="/writing">全部文章 <span aria-hidden="true">→</span></Link>
-            </div>
-            <div className="featured-list">
-              {featured.map((article, index) => (
-                <article className="article-card" key={article.slug}>
-                  <time dateTime={article.date}>{article.displayDate}</time>
-                  <div>
-                    <p>{article.category} · {article.minutes} 分钟</p>
-                    <h3><Link href={`/writing/${article.slug}`}>{article.title}</Link></h3>
-                    <p className="article-summary">{article.summary}</p>
-                  </div>
-                  <span className="article-number" aria-hidden="true">0{index + 1}</span>
-                  <Link className="card-link" href={`/writing/${article.slug}`} aria-label={`阅读《${article.title}》`}>→</Link>
-                </article>
-              ))}
-            </div>
-          </section>}
+          </div>
         </div>
       </main>
     </SiteShell>

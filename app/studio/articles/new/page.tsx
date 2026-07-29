@@ -8,6 +8,18 @@ export const dynamic = "force-dynamic";
 export default async function NewArticlePage() {
   const user = await requireStudioUser("/studio/articles/new");
   const categories = await contentServices.studio.articles.categories();
+  if (!categories.length) {
+    return (
+      <StudioShell active="articles" user={user}>
+        <div className="studio-bootstrap">
+          <p className="eyebrow">FIRST STEP</p>
+          <h1>先建立文章分类</h1>
+          <p>文章必须属于一个分类。完成这一步后，编辑器会自动获得可选分类。</p>
+          <a className="button button-primary" href="/studio/categories">创建第一个分类 →</a>
+        </div>
+      </StudioShell>
+    );
+  }
   return (
     <StudioShell active="articles" user={user}>
       <header className="studio-page-heading studio-editor-heading">

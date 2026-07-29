@@ -115,7 +115,7 @@ test("Studio has durable autosave, revision restore, and scheduled publishing", 
   assert.match(editor, /定时发布/);
   assert.match(service, /saveStudioArticleDraft/);
   assert.match(service, /reason = "scheduled"/);
-  assert.match(service, /restore\(slug: string, revisionId: string\)/);
+  assert.match(service, /revisionId: string,\s+expectedVersion: number/);
   assert.match(repository, /article_revisions/);
   assert.match(repository, /ON CONFLICT\(article_slug\) DO UPDATE/);
   assert.match(repository, /LIMIT 30/);

@@ -3,15 +3,17 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("visitors can search globally from every public route", async () => {
-  const [shell, header, palette, overlay, ranking, discovery] = await Promise.all([
+  const [shell, header, palette, overlay, ranking, discovery, searchRoute, searchRepository] = await Promise.all([
     readFile("app/components/site-shell.tsx", "utf8"),
     readFile("app/components/site-header.tsx", "utf8"),
     readFile("app/components/search-palette.tsx", "utf8"),
     readFile("app/components/overlay-layer.tsx", "utf8"),
     readFile("app/domain/search.ts", "utf8"),
     readFile("app/application/discovery-service.ts", "utf8"),
+    readFile("app/api/search/route.ts", "utf8"),
+    readFile("app/infrastructure/d1-search-repository.ts", "utf8"),
   ]);
-  assert.match(shell, /discovery\.buildSearchIndex/);
+  assert.doesNotMatch(shell, /discovery\.buildSearchIndex/);
   assert.match(header, /SearchPalette/);
   assert.match(palette, /Control\+K|metaKey \|\| event\.ctrlKey/);
   assert.match(palette, /role="combobox"/);
@@ -29,7 +31,10 @@ test("visitors can search globally from every public route", async () => {
   assert.match(palette, /<Highlighted/);
   assert.match(ranking, /rankSearchEntries/);
   assert.match(ranking, /tokens\.every/);
-  assert.match(discovery, /section\.paragraphs/);
+  assert.match(searchRoute, /discovery\.buildSearchIndex/);
+  assert.ok(palette.includes('fetch("/api/search"'));
+  assert.doesNotMatch(searchRepository, /article_sections/);
+  assert.match(discovery, /listSearchEntries/);
 });
 
 test("the home page provides explicit starting paths from real content", async () => {

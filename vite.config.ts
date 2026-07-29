@@ -41,6 +41,12 @@ export default defineConfig(async ({ command }) => {
       vinext(),
       sites(),
       cloudflare({
+        persistState: {
+          path: resolve(
+            process.cwd(),
+            process.env.LOCAL_D1_PERSIST_TO ?? ".wrangler/state",
+          ),
+        },
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         inspectorPort: false,
         config: {

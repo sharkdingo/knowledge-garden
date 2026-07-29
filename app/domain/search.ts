@@ -1,5 +1,9 @@
 import type { SearchEntry } from "./content";
 
+export interface SearchRepository {
+  listSearchEntries(): Promise<readonly SearchEntry[]>;
+}
+
 export type RankedSearchEntry = SearchEntry & {
   score: number;
 };

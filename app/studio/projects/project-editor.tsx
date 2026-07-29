@@ -9,6 +9,7 @@ import type {
 } from "../../domain/studio";
 import { isScheduledArticleLive } from "../../domain/studio";
 import { ProjectVisual } from "../../components/project-visual";
+import { studioRequest } from "../studio-client";
 import { ConfirmationDialog } from "../components/confirmation-dialog";
 
 type EditorState = {
@@ -87,6 +88,7 @@ export function ProjectEditor({
 }) {
   const router = useRouter();
   const [state, setState] = useState(() => initialState(project));
+  const [version, setVersion] = useState(project?.version ?? 0);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -115,16 +117,22 @@ export function ProjectEditor({
     setMessage("");
     try {
       const input = { ...toInput(state), archived };
-      const response = await fetch(
+      const result = await studioRequest<{
+        id?: string;
+        version?: number;
+      }>(
         isNew ? "/api/studio/projects" : `/api/studio/projects/${project.id}`,
         {
           method: isNew ? "POST" : "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(!isNew ? { "If-Match": String(version) } : {}),
+          },
           body: JSON.stringify(input),
         },
+        "保存项目失败，请稍后重试。",
       );
-      const result = await response.json() as { error?: string; id?: string };
-      if (!response.ok) throw new Error(result.error ?? "保存失败，请稍后重试。");
+      if (result.version) setVersion(result.version);
       setState((current) => ({ ...current, archived }));
       setDirty(false);
       setMessage(archived ? "项目已归档，可随时恢复。" : "项目更改已经保存。");
@@ -142,9 +150,14 @@ export function ProjectEditor({
     setSaving(true);
     setMessage("");
     try {
-      const response = await fetch(`/api/studio/projects/${project.id}`, { method: "DELETE" });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "归档失败。");
+      await studioRequest(
+        `/api/studio/projects/${project.id}`,
+        {
+          method: "DELETE",
+          headers: { "If-Match": String(version) },
+        },
+        "归档项目失败。",
+      );
       setDirty(false);
       router.push("/studio/projects");
       router.refresh();

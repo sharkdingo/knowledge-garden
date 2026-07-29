@@ -10,6 +10,7 @@ import type {
   StudioArticleRevision,
   StudioCategory,
 } from "../../domain/studio";
+import { studioRequest } from "../studio-client";
 import { isScheduledArticleLive } from "../../domain/studio";
 import { ConfirmationDialog } from "../components/confirmation-dialog";
 
@@ -220,6 +221,7 @@ export function ArticleEditor({
 }) {
   const router = useRouter();
   const [state, setState] = useState(() => initialState(article, categories));
+  const [version, setVersion] = useState(article?.version ?? 0);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState("");
@@ -299,13 +301,16 @@ export function ArticleEditor({
     const timer = window.setTimeout(async () => {
       setAutosaveStatus("saving");
       try {
-        const response = await fetch(`/api/studio/articles/${article.slug}/draft`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(toInput(state)),
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error("自动备份失败");
+        await studioRequest(
+          `/api/studio/articles/${article.slug}/draft`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(toInput(state)),
+            signal: controller.signal,
+          },
+          "自动备份失败。",
+        );
         setAutosaveStatus("saved");
       } catch (error) {
         if ((error as Error).name !== "AbortError") setAutosaveStatus("failed");
@@ -356,16 +361,22 @@ export function ArticleEditor({
     setSaving(true);
     setMessage("");
     try {
-      const response = await fetch(
+      const result = await studioRequest<{
+        slug?: string;
+        version?: number;
+      }>(
         isNew ? "/api/studio/articles" : `/api/studio/articles/${article.slug}`,
         {
           method: isNew ? "POST" : "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(!isNew ? { "If-Match": String(version) } : {}),
+          },
           body: JSON.stringify(toInput(state, status)),
         },
+        "保存文章失败，请稍后重试。",
       );
-      const result = await response.json() as { error?: string; slug?: string };
-      if (!response.ok) throw new Error(result.error ?? "保存失败，请稍后重试。");
+      if (result.version) setVersion(result.version);
       setState((current) => ({ ...current, status }));
       setDirty(false);
       setAutosaveStatus("idle");
@@ -390,8 +401,11 @@ export function ArticleEditor({
   async function discardRecovery() {
     try {
       if (recovery?.source === "cloud" && article) {
-        const response = await fetch(`/api/studio/articles/${article.slug}/draft`, { method: "DELETE" });
-        if (!response.ok) throw new Error("无法移除云端备份，请稍后重试。");
+        await studioRequest(
+          `/api/studio/articles/${article.slug}/draft`,
+          { method: "DELETE" },
+          "无法移除云端备份，请稍后重试。",
+        );
       } else {
         window.localStorage.removeItem(recoveryKey);
       }
@@ -406,16 +420,21 @@ export function ArticleEditor({
     setSaving(true);
     setMessage("");
     try {
-      const response = await fetch(`/api/studio/articles/${article.slug}/revisions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ revisionId: selectedRevision.id }),
-      });
-      const result = await response.json() as { error?: string; article?: StudioArticle };
-      if (!response.ok || !result.article) {
-        throw new Error(result.error ?? "无法恢复文章版本。");
-      }
+      const result = await studioRequest<{ article?: StudioArticle }>(
+        `/api/studio/articles/${article.slug}/revisions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "If-Match": String(version),
+          },
+          body: JSON.stringify({ revisionId: selectedRevision.id }),
+        },
+        "无法恢复文章版本。",
+      );
+      if (!result.article) throw new Error("恢复结果不完整，请刷新页面后重试。");
       setState(initialState(result.article, categories));
+      setVersion(result.article.version);
       setDirty(false);
       setAutosaveStatus("idle");
       setRecovery(null);
@@ -436,9 +455,14 @@ export function ArticleEditor({
     setSaving(true);
     setMessage("");
     try {
-      const response = await fetch(`/api/studio/articles/${article.slug}`, { method: "DELETE" });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "归档失败。");
+      await studioRequest(
+        `/api/studio/articles/${article.slug}`,
+        {
+          method: "DELETE",
+          headers: { "If-Match": String(version) },
+        },
+        "归档文章失败。",
+      );
       setDirty(false);
       window.localStorage.removeItem(recoveryKey);
       router.push("/studio/articles");
@@ -589,7 +613,7 @@ export function ArticleEditor({
               <label><span>标签</span><input value={state.tags} onChange={(event) => patch("tags", event.target.value)} placeholder="架构, AI, 工程实践" /></label>
               <label className="wide"><span>摘要</span><textarea required maxLength={320} rows={3} value={state.summary} onChange={(event) => patch("summary", event.target.value)} /></label>
               <label className="wide"><span>导语</span><textarea required maxLength={600} rows={4} value={state.lead} onChange={(event) => patch("lead", event.target.value)} /></label>
-              <label className="studio-check wide"><input type="checkbox" checked={state.featured} onChange={(event) => patch("featured", event.target.checked)} /><span>在首页精选文章中展示</span></label>
+              <label className="studio-check wide"><input type="checkbox" checked={state.featured} onChange={(event) => patch("featured", event.target.checked)} /><span>标记为推荐文章（用于列表强调）</span></label>
             </div>
           </section>
 

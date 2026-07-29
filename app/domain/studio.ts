@@ -27,6 +27,7 @@ export type StudioArticleSummary = {
   publishedAt: string;
   updatedLabel: string;
   featured: boolean;
+  version: number;
 };
 
 export type StudioRevisionReason =
@@ -68,13 +69,20 @@ export type StudioArticle = StudioArticleSummary & {
 
 export type StudioArticleInput = Omit<
   StudioArticle,
-  "categoryName" | "updatedLabel"
+  "categoryName" | "updatedLabel" | "version"
 >;
 
 export type StudioCategory = {
   id: string;
   name: string;
+  description: string;
+  sortOrder: number;
+  articleCount: number;
 };
+
+export type StudioCategoryInput = Omit<StudioCategory, "articleCount">;
+
+export type StudioCategoryDeleteResult = "deleted" | "in-use" | "missing";
 
 export type StudioOverview = {
   articles: number;
@@ -89,6 +97,7 @@ export type StudioOverview = {
 export type StudioProject = Project & {
   sortOrder: number;
   archived: boolean;
+  version: number;
 };
 
 export type StudioProjectInput = {
@@ -121,6 +130,7 @@ export type StudioAlgorithmProblemSummary = {
   solvedAt: string;
   updatedAt: string;
   solutionCount: number;
+  version: number;
 };
 
 export type StudioAlgorithmProblem = StudioAlgorithmProblemSummary & {
@@ -155,6 +165,7 @@ export type StudioAlgorithmProblemInput = {
 };
 
 export type StudioSiteSettings = {
+  version: string;
   hero: {
     eyebrow: string;
     titleLines: string[];
@@ -196,8 +207,12 @@ export interface StudioArticleRepository {
   findStudioArticle(slug: string): Promise<StudioArticle | null>;
   listStudioCategories(): Promise<readonly StudioCategory[]>;
   createStudioArticle(input: StudioArticleInput): Promise<void>;
-  updateStudioArticle(input: StudioArticleInput, reason?: StudioRevisionReason): Promise<void>;
-  archiveStudioArticle(slug: string): Promise<void>;
+  updateStudioArticle(
+    input: StudioArticleInput,
+    expectedVersion: number,
+    reason?: StudioRevisionReason,
+  ): Promise<number | null>;
+  archiveStudioArticle(slug: string, expectedVersion: number): Promise<number | null>;
   getStudioArticleDraft(slug: string): Promise<StudioArticleDraft | null>;
   saveStudioArticleDraft(input: StudioArticleInput): Promise<StudioArticleDraft>;
   deleteStudioArticleDraft(slug: string): Promise<void>;
@@ -205,25 +220,76 @@ export interface StudioArticleRepository {
   findStudioArticleRevision(slug: string, revisionId: string): Promise<StudioArticleInput | null>;
 }
 
+export interface StudioCategoryRepository {
+  listStudioCategories(): Promise<readonly StudioCategory[]>;
+  findStudioCategory(id: string): Promise<StudioCategory | null>;
+  createStudioCategory(input: StudioCategoryInput): Promise<void>;
+  updateStudioCategory(input: StudioCategoryInput): Promise<void>;
+  deleteStudioCategory(id: string): Promise<StudioCategoryDeleteResult>;
+}
+
 export interface StudioProjectRepository {
   listStudioProjects(): Promise<readonly StudioProject[]>;
   findStudioProject(id: string): Promise<StudioProject | null>;
   createStudioProject(input: StudioProjectInput): Promise<void>;
-  updateStudioProject(input: StudioProjectInput): Promise<void>;
-  archiveStudioProject(id: string): Promise<void>;
+  updateStudioProject(input: StudioProjectInput, expectedVersion: number): Promise<number | null>;
+  archiveStudioProject(id: string, expectedVersion: number): Promise<number | null>;
 }
 
 export interface StudioAlgorithmProblemRepository {
   listStudioAlgorithmProblems(): Promise<readonly StudioAlgorithmProblemSummary[]>;
   findStudioAlgorithmProblem(slug: string): Promise<StudioAlgorithmProblem | null>;
   createStudioAlgorithmProblem(input: StudioAlgorithmProblemInput): Promise<void>;
-  updateStudioAlgorithmProblem(input: StudioAlgorithmProblemInput): Promise<void>;
-  archiveStudioAlgorithmProblem(slug: string): Promise<void>;
+  updateStudioAlgorithmProblem(
+    input: StudioAlgorithmProblemInput,
+    expectedVersion: number,
+  ): Promise<number | null>;
+  archiveStudioAlgorithmProblem(slug: string, expectedVersion: number): Promise<number | null>;
 }
 
 export interface StudioSiteRepository {
   getEditableSiteSettings(): Promise<StudioSiteSettings>;
-  updateEditableSiteSettings(settings: StudioSiteSettings): Promise<void>;
+  updateEditableSiteSettings(settings: StudioSiteSettings): Promise<string | null>;
+}
+
+export type StudioExportSnapshot = {
+  schemaVersion: 1;
+  exportedAt: string;
+  tables: Record<string, readonly Record<string, unknown>[]>;
+};
+
+export type StudioRestorePreview = {
+  checksum: string;
+  confirmationCode: string;
+  exportedAt: string;
+  totalRows: number;
+  counts: Record<string, number>;
+  warnings: string[];
+};
+
+export type StudioRestorePoint = {
+  id: string;
+  createdAt: string;
+};
+
+export interface StudioBackupRepository {
+  exportSnapshot(): Promise<StudioExportSnapshot>;
+  saveRestorePoint(snapshot: StudioExportSnapshot): Promise<string>;
+  listRestorePoints(): Promise<readonly StudioRestorePoint[]>;
+  findRestorePoint(id: string): Promise<StudioExportSnapshot | null>;
+  restoreSnapshot(snapshot: StudioExportSnapshot): Promise<void>;
+}
+
+export type StudioAuditEvent = {
+  action: string;
+  resourceType: "article" | "category" | "problem" | "project" | "site" | "backup";
+  resourceId: string;
+  outcome: "succeeded" | "rejected";
+  metadata?: Readonly<Record<string, string | number | boolean>>;
+};
+
+export interface StudioAuditRepository {
+  record(actorEmail: string, event: StudioAuditEvent): Promise<void>;
 }
 
 export type EditableSiteProfile = SiteProfile & {

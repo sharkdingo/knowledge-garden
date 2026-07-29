@@ -35,11 +35,14 @@ export default async function ArticlePage({ params }: Props) {
       <ReadingFocus />
       <main id="main-content" className="article-page">
         <article id="article-document" className="article-content">
+          <Link className="article-back" href="/writing">
+            <span aria-hidden="true">←</span> {profile.pages.writing.title}
+          </Link>
           <header className="article-header">
             <p className="eyebrow">WRITING / {article.category}</p>
             <h1>{article.title}</h1>
             <div className="article-meta">
-              <time dateTime={article.date}>{article.date}</time>
+              <time dateTime={article.date}>{article.displayDate}</time>
               <span>·</span>
               <Link href={`/writing?category=${encodeURIComponent(article.category)}`}>
                 {article.category}

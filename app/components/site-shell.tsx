@@ -11,10 +11,7 @@ export async function SiteShell({
   active: "home" | "writing" | "algorithms" | "projects" | "about" | "explore" | "play";
   children: React.ReactNode;
 }) {
-  const [profile, searchIndex] = await Promise.all([
-    contentServices.site.getProfile(),
-    contentServices.discovery.buildSearchIndex(),
-  ]);
+  const profile = await contentServices.site.getProfile();
   return (
     <div className="site-root">
       <NavigationExperience />
@@ -23,10 +20,8 @@ export async function SiteShell({
       </a>
       <SiteHeader
         active={active}
-        immersive={active === "home"}
         identity={profile.identity}
         navigation={profile.navigation}
-        searchIndex={searchIndex}
       />
       {children}
       <footer className="site-footer">

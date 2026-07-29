@@ -9,6 +9,7 @@ import type {
   StudioAlgorithmProblemInput,
   StudioAlgorithmStatus,
 } from "../../domain/studio";
+import { studioRequest } from "../studio-client";
 import { ConfirmationDialog } from "../components/confirmation-dialog";
 
 type Confirmation = "publish" | "unpublish" | "archive" | null;
@@ -107,6 +108,7 @@ export function ProblemEditor({
   const [state, setState] = useState<StudioAlgorithmProblemInput>(
     () => problem ? toInput(problem) : emptyProblem(authoring),
   );
+  const [version, setVersion] = useState(problem?.version ?? 0);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -322,16 +324,22 @@ export function ProblemEditor({
     setSaving(true);
     setMessage("");
     try {
-      const response = await fetch(
+      const result = await studioRequest<{
+        slug?: string;
+        version?: number;
+      }>(
         isNew ? "/api/studio/problems" : `/api/studio/problems/${problem.slug}`,
         {
           method: isNew ? "POST" : "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(!isNew ? { "If-Match": String(version) } : {}),
+          },
           body: JSON.stringify({ ...state, status }),
         },
+        "保存题解失败，请稍后重试。",
       );
-      const result = await response.json() as { error?: string; slug?: string };
-      if (!response.ok) throw new Error(result.error ?? "保存失败，请稍后重试。");
+      if (result.version) setVersion(result.version);
       setState((current) => ({ ...current, status }));
       setDirty(false);
       setMessage(
@@ -353,9 +361,14 @@ export function ProblemEditor({
     if (!problem) return;
     setSaving(true);
     try {
-      const response = await fetch(`/api/studio/problems/${problem.slug}`, { method: "DELETE" });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "归档失败。");
+      await studioRequest(
+        `/api/studio/problems/${problem.slug}`,
+        {
+          method: "DELETE",
+          headers: { "If-Match": String(version) },
+        },
+        "归档题解失败。",
+      );
       setDirty(false);
       router.push("/studio/problems");
       router.refresh();

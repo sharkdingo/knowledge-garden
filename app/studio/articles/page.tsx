@@ -25,7 +25,7 @@ export default async function StudioArticlesPage() {
 
       <section className="studio-table" aria-label="文章列表">
         <div className="studio-table-head" aria-hidden="true">
-          <span>文章</span><span>分类</span><span>状态</span><span>日期</span><span />
+          <span>文章</span><span>分类</span><span>状态</span><span>日期</span><span>操作</span>
         </div>
         {articles.map((article) => (
           <article key={article.slug}>
@@ -44,9 +44,23 @@ export default async function StudioArticlesPage() {
                   : article.status === "archived" ? "已归档" : "草稿"}
             </i>
             <time dateTime={article.publishedAt}>{article.updatedLabel}</time>
-            <Link href={`/studio/articles/${article.slug}`} aria-label={`编辑《${article.title || "未命名草稿"}》`}>
-              编辑 <span aria-hidden="true">→</span>
-            </Link>
+            <div className="studio-row-actions">
+              {(article.status === "published" ||
+                isScheduledArticleLive(article.status, article.publishedAt)) && (
+                <Link
+                  href={`/writing/${article.slug}`}
+                  aria-label={`查看《${article.title || "未命名草稿"}》的公开页面`}
+                >
+                  查看
+                </Link>
+              )}
+              <Link
+                href={`/studio/articles/${article.slug}`}
+                aria-label={`编辑《${article.title || "未命名草稿"}》`}
+              >
+                编辑 <span aria-hidden="true">→</span>
+              </Link>
+            </div>
           </article>
         ))}
         {!articles.length && (

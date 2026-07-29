@@ -9,6 +9,7 @@ import type {
   SiteProfileRepository,
   TaxonomyRepository,
 } from "../domain/content";
+import { parsePersistedSiteProfile } from "../domain/site-profile-schema";
 
 type ArticleRow = {
   slug: string;
@@ -279,7 +280,7 @@ export class D1ContentRepository
     const settings = new Map(rows<SettingRow>(settingsResult).map((row) => [row.key, row.value]));
     const profileValue = settings.get("profile");
     if (!profileValue) throw new Error("Missing required site setting: profile.");
-    const profile = parseJson<SiteSettings>(profileValue, "site profile");
+    const profile = parsePersistedSiteProfile(profileValue) as SiteSettings;
     const navigation = rows<NavigationRow>(navigationResult);
 
     return {

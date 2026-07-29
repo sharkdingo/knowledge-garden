@@ -5,9 +5,11 @@ import { chatGPTSignOutPath } from "../chatgpt-auth";
 const navigation = [
   { id: "overview", href: "/studio", label: "概览" },
   { id: "articles", href: "/studio/articles", label: "文章" },
+  { id: "categories", href: "/studio/categories", label: "分类" },
   { id: "algorithms", href: "/studio/problems", label: "题库" },
   { id: "projects", href: "/studio/projects", label: "项目" },
   { id: "site", href: "/studio/site", label: "站点" },
+  { id: "backup", href: "/studio/backup", label: "备份" },
 ];
 
 export function StudioShell({
@@ -15,7 +17,7 @@ export function StudioShell({
   user,
   children,
 }: {
-  active: "overview" | "articles" | "algorithms" | "projects" | "site";
+  active: "overview" | "articles" | "categories" | "algorithms" | "projects" | "site" | "backup";
   user: ChatGPTUser;
   children: React.ReactNode;
 }) {
@@ -48,6 +50,7 @@ export function StudioShell({
             <Link href={chatGPTSignOutPath("/")}>退出</Link>
           </div>
           <div className="studio-mobile-actions" aria-label="账户操作">
+            <Link href="/studio/backup">备份</Link>
             <Link href="/">查看网站</Link>
             <Link href={chatGPTSignOutPath("/")}>退出</Link>
           </div>

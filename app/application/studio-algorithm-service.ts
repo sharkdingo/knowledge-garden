@@ -3,7 +3,7 @@ import type {
   StudioAlgorithmProblemInput,
   StudioAlgorithmProblemRepository,
 } from "../domain/studio";
-import { StudioValidationError } from "./studio-validation";
+import { StudioConflictError, StudioValidationError } from "./studio-validation";
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const IDENTIFIER = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -202,7 +202,11 @@ export class StudioAlgorithmProblemService {
     return normalized.slug;
   }
 
-  async update(slug: string, input: StudioAlgorithmProblemInput): Promise<void> {
+  async update(
+    slug: string,
+    input: StudioAlgorithmProblemInput,
+    expectedVersion: number,
+  ): Promise<number> {
     const normalized = normalize(input);
     if (normalized.slug !== slug) {
       throw new StudioValidationError("已创建题解的 Slug 不能直接修改。");
@@ -210,13 +214,23 @@ export class StudioAlgorithmProblemService {
     if (!await this.repository.findStudioAlgorithmProblem(slug)) {
       throw new StudioValidationError("找不到需要更新的题解。");
     }
-    await this.repository.updateStudioAlgorithmProblem(normalized);
+    const version = await this.repository.updateStudioAlgorithmProblem(
+      normalized,
+      expectedVersion,
+    );
+    if (!version) throw new StudioConflictError("题解");
+    return version;
   }
 
-  async archive(slug: string): Promise<void> {
+  async archive(slug: string, expectedVersion: number): Promise<number> {
     if (!await this.repository.findStudioAlgorithmProblem(slug)) {
       throw new StudioValidationError("找不到需要归档的题解。");
     }
-    await this.repository.archiveStudioAlgorithmProblem(slug);
+    const version = await this.repository.archiveStudioAlgorithmProblem(
+      slug,
+      expectedVersion,
+    );
+    if (!version) throw new StudioConflictError("题解");
+    return version;
   }
 }

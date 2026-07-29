@@ -30,6 +30,7 @@ type ProblemRow = {
   featured: number;
   solution_count?: number;
   languages?: string | null;
+  row_version: number;
 };
 
 type SolutionRow = {
@@ -210,7 +211,7 @@ export class D1AlgorithmRepository
     const result = await database().prepare(`
       SELECT
         p.slug, p.platform, p.problem_id, p.title, p.difficulty, p.status,
-        p.solved_at, p.updated_at, COUNT(s.id) AS solution_count
+        p.solved_at, p.updated_at, p.row_version, COUNT(s.id) AS solution_count
       FROM algorithm_problems p
       LEFT JOIN algorithm_solutions s ON s.problem_slug = p.slug
       GROUP BY p.slug
@@ -228,6 +229,7 @@ export class D1AlgorithmRepository
       solvedAt: row.solved_at,
       updatedAt: row.updated_at,
       solutionCount: Number(row.solution_count ?? 0),
+      version: Number(row.row_version),
     }));
   }
 
@@ -244,6 +246,7 @@ export class D1AlgorithmRepository
       solvedAt: result.problem.solved_at,
       updatedAt: result.problem.updated_at,
       solutionCount: result.solutions.length,
+      version: Number(result.problem.row_version),
       sourceUrl: result.problem.source_url,
       summary: result.problem.summary,
       statement: result.problem.statement,
@@ -291,17 +294,22 @@ export class D1AlgorithmRepository
     ]);
   }
 
-  async updateStudioAlgorithmProblem(input: StudioAlgorithmProblemInput): Promise<void> {
+  async updateStudioAlgorithmProblem(
+    input: StudioAlgorithmProblemInput,
+    expectedVersion: number,
+  ): Promise<number | null> {
     const d1 = database();
-    const relations = this.prepareRelations(d1, input);
-    await d1.batch([
+    const writeToken = crypto.randomUUID();
+    const relations = this.prepareRelations(d1, input, writeToken);
+    const results = await d1.batch([
       d1.prepare(`
         UPDATE algorithm_problems
         SET
           platform = ?, problem_id = ?, title = ?, difficulty = ?, source_url = ?,
           summary = ?, statement = ?, constraints = ?, status = ?, solved_at = ?,
-          updated_at = ?, featured = ?
-        WHERE slug = ?
+          updated_at = ?, featured = ?, row_version = row_version + 1,
+          write_token = ?
+        WHERE slug = ? AND row_version = ?
       `).bind(
         input.platform,
         input.problemId,
@@ -315,18 +323,32 @@ export class D1AlgorithmRepository
         input.solvedAt,
         new Date().toISOString(),
         input.featured ? 1 : 0,
+        writeToken,
         input.slug,
+        expectedVersion,
       ),
       ...relations,
+      d1.prepare(`
+        UPDATE algorithm_problems
+        SET write_token = NULL
+        WHERE slug = ? AND write_token = ?
+      `).bind(input.slug, writeToken),
     ]);
+    return results[0].meta.changes ? expectedVersion + 1 : null;
   }
 
-  async archiveStudioAlgorithmProblem(slug: string): Promise<void> {
-    await database().prepare(`
+  async archiveStudioAlgorithmProblem(
+    slug: string,
+    expectedVersion: number,
+  ): Promise<number | null> {
+    const result = await database().prepare(`
       UPDATE algorithm_problems
-      SET status = 'archived', updated_at = ?
-      WHERE slug = ?
-    `).bind(new Date().toISOString(), slug).run();
+      SET
+        status = 'archived', updated_at = ?,
+        row_version = row_version + 1
+      WHERE slug = ? AND row_version = ?
+    `).bind(new Date().toISOString(), slug, expectedVersion).run();
+    return result.meta.changes ? expectedVersion + 1 : null;
   }
 
   private async readProblem(slug: string, publishedOnly: boolean): Promise<{
@@ -398,8 +420,9 @@ export class D1AlgorithmRepository
   private prepareRelations(
     d1: D1Database,
     input: StudioAlgorithmProblemInput,
+    writeToken?: string,
   ): D1PreparedStatement[] {
-    return [
+    if (!writeToken) return [
       d1.prepare("DELETE FROM algorithm_references WHERE problem_slug = ?").bind(input.slug),
       d1.prepare("DELETE FROM algorithm_solutions WHERE problem_slug = ?").bind(input.slug),
       d1.prepare("DELETE FROM algorithm_problem_tags WHERE problem_slug = ?").bind(input.slug),
@@ -468,6 +491,110 @@ export class D1AlgorithmRepository
           FROM tags
           WHERE name = ?
         `).bind(input.slug, tag)
+      ),
+    ];
+
+    const guard = `
+      EXISTS (
+        SELECT 1 FROM algorithm_problems
+        WHERE slug = ? AND write_token = ?
+      )
+    `;
+    return [
+      d1.prepare(`
+        DELETE FROM algorithm_references
+        WHERE problem_slug = ? AND ${guard}
+      `).bind(input.slug, input.slug, writeToken),
+      d1.prepare(`
+        DELETE FROM algorithm_solutions
+        WHERE problem_slug = ? AND ${guard}
+      `).bind(input.slug, input.slug, writeToken),
+      d1.prepare(`
+        DELETE FROM algorithm_problem_tags
+        WHERE problem_slug = ? AND ${guard}
+      `).bind(input.slug, input.slug, writeToken),
+      ...input.tags.map((tag) =>
+        d1.prepare(`
+          INSERT OR IGNORE INTO tags (id, name)
+          SELECT ?, ?
+          WHERE ${guard}
+        `).bind(
+          `tag-${crypto.randomUUID()}`,
+          tag,
+          input.slug,
+          writeToken,
+        )
+      ),
+      ...input.solutions.flatMap((solution, solutionIndex) => [
+        d1.prepare(`
+          INSERT INTO algorithm_solutions (
+            id, problem_slug, title, intuition, steps, proof, time_complexity,
+            space_complexity, pitfalls, sort_order
+          )
+          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          WHERE ${guard}
+        `).bind(
+          storageId(input.slug, solution.id),
+          input.slug,
+          solution.title,
+          solution.intuition,
+          JSON.stringify(solution.steps),
+          solution.proof,
+          solution.timeComplexity,
+          solution.spaceComplexity,
+          JSON.stringify(solution.pitfalls),
+          solutionIndex,
+          input.slug,
+          writeToken,
+        ),
+        ...solution.codeBlocks.map((block, codeIndex) =>
+          d1.prepare(`
+            INSERT INTO algorithm_code_blocks (
+              id, solution_id, language, label, code, sort_order
+            )
+            SELECT ?, ?, ?, ?, ?, ?
+            WHERE ${guard}
+          `).bind(
+            storageId(input.slug, block.id),
+            storageId(input.slug, solution.id),
+            block.language,
+            block.label,
+            block.code,
+            codeIndex,
+            input.slug,
+            writeToken,
+          )
+        ),
+      ]),
+      ...input.references.map((reference, referenceIndex) =>
+        d1.prepare(`
+          INSERT INTO algorithm_references (
+            id, problem_slug, solution_id, title, author, url, note,
+            accessed_at, sort_order
+          )
+          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+          WHERE ${guard}
+        `).bind(
+          storageId(input.slug, reference.id),
+          input.slug,
+          reference.solutionId ? storageId(input.slug, reference.solutionId) : null,
+          reference.title,
+          reference.author,
+          reference.url,
+          reference.note,
+          reference.accessedAt,
+          referenceIndex,
+          input.slug,
+          writeToken,
+        )
+      ),
+      ...input.tags.map((tag) =>
+        d1.prepare(`
+          INSERT INTO algorithm_problem_tags (problem_slug, tag_id)
+          SELECT ?, id
+          FROM tags
+          WHERE name = ? AND ${guard}
+        `).bind(input.slug, tag, input.slug, writeToken)
       ),
     ];
   }

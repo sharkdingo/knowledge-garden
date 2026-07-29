@@ -43,6 +43,7 @@ export default async function WritingPage({
           key={`${selectedCategory}|${q}|${selectedYear}`}
           articles={articles}
           categories={taxonomy.categories.map((item) => item.value)}
+          emptyState={intro}
           initialFilter={selectedCategory}
           initialQuery={q}
           initialYear={selectedYear}

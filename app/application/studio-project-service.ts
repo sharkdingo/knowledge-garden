@@ -3,7 +3,7 @@ import type {
   StudioProjectInput,
   StudioProjectRepository,
 } from "../domain/studio";
-import { StudioValidationError } from "./studio-validation";
+import { StudioConflictError, StudioValidationError } from "./studio-validation";
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const VISUALS = new Set(["iot", "canvas", "agent"]);
@@ -94,7 +94,7 @@ export class StudioProjectService {
     return normalized.id;
   }
 
-  async update(id: string, input: StudioProjectInput) {
+  async update(id: string, input: StudioProjectInput, expectedVersion: number) {
     const normalized = normalize(input);
     if (normalized.id !== id) {
       throw new StudioValidationError("项目 ID 创建后不能直接修改。");
@@ -102,10 +102,14 @@ export class StudioProjectService {
     if (!await this.repository.findStudioProject(id)) {
       throw new StudioValidationError("找不到需要更新的项目。");
     }
-    await this.repository.updateStudioProject(normalized);
+    const version = await this.repository.updateStudioProject(normalized, expectedVersion);
+    if (!version) throw new StudioConflictError("项目");
+    return version;
   }
 
-  archive(id: string) {
-    return this.repository.archiveStudioProject(id);
+  async archive(id: string, expectedVersion: number) {
+    const version = await this.repository.archiveStudioProject(id, expectedVersion);
+    if (!version) throw new StudioConflictError("项目");
+    return version;
   }
 }

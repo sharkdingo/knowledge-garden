@@ -28,8 +28,10 @@ Open:
 - readiness: `http://localhost:5173/api/health`;
 - local D1 explorer: `http://localhost:5173/cdn-cgi/explorer`.
 
-An `ok/ready` health response means both D1 and the required `profile` record
-exist. An `uninitialized` response means migrations have not run.
+An `ok/ready` health response means the migration ledger is current, every
+application capability table exists, and the required `profile` record is
+valid. An `uninitialized` response means the schema is incomplete or migrations
+have not run.
 
 ## Local Studio access
 

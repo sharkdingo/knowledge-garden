@@ -16,6 +16,10 @@ test("local startup migrates the same persistent D1 opened by Vite", async () =>
   assert.match(packageJson.scripts.dev, /local-runtime\.mjs dev/);
   assert.match(packageJson.scripts.start, /local-runtime\.mjs start/);
   assert.match(packageJson.scripts["db:migrate"], /local-db\.mjs migrate/);
+  assert.equal(
+    packageJson.scripts["validate:artifact"],
+    "node --experimental-loader ./scripts/cloudflare-workers-loader.mjs ./scripts/validate-artifact.mjs",
+  );
   assert.match(localRuntime, /"preview"/);
   assert.doesNotMatch(localRuntime, /vinext/);
   assert.equal(config.d1_databases[0].binding, "DB");
@@ -53,9 +57,17 @@ test("local Studio identity is opt-in, allowlisted, and loopback-only", async ()
 });
 
 test("readiness detects an uninitialized database instead of accepting SELECT 1", async () => {
-  const health = await readFile("app/api/health/route.ts", "utf8");
+  const [health, schema] = await Promise.all([
+    readFile("app/api/health/route.ts", "utf8"),
+    readFile("db/schema.ts", "utf8"),
+  ]);
+  const applicationTables = [...schema.matchAll(/sqliteTable\("([^"]+)"/g)]
+    .map((match) => match[1]);
   assert.match(health, /sqlite_master/);
-  assert.match(health, /site_settings/);
+  for (const requiredCapabilityTable of applicationTables) {
+    assert.match(health, new RegExp(`"${requiredCapabilityTable}"`));
+  }
+  assert.match(health, /"d1_migrations"/);
   assert.match(health, /uninitialized/);
   assert.match(health, /WHERE key = 'profile'/);
   assert.doesNotMatch(health, /SELECT 1 AS ready/);

@@ -35,13 +35,17 @@ export const articles = sqliteTable("articles", {
   calloutLabel: text("callout_label"),
   calloutLines: text("callout_lines"),
   status: text("status").notNull().default("published"),
+  rowVersion: integer("row_version").notNull().default(1),
+  writeToken: text("write_token"),
 }, (table) => [
   index("articles_status_date_idx").on(table.status, table.publishedAt),
   index("articles_category_idx").on(table.categoryId),
 ]);
 
 export const articleDrafts = sqliteTable("article_drafts", {
-  articleSlug: text("article_slug").primaryKey(),
+  articleSlug: text("article_slug")
+    .primaryKey()
+    .references(() => articles.slug, { onDelete: "cascade" }),
   payload: text("payload").notNull(),
   savedAt: text("saved_at").notNull(),
 });
@@ -103,6 +107,8 @@ export const algorithmProblems = sqliteTable("algorithm_problems", {
   solvedAt: text("solved_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   featured: integer("featured", { mode: "boolean" }).notNull().default(false),
+  rowVersion: integer("row_version").notNull().default(1),
+  writeToken: text("write_token"),
 }, (table) => [
   index("algorithm_problems_status_solved_idx").on(table.status, table.solvedAt),
   index("algorithm_problems_platform_id_idx").on(table.platform, table.problemId),
@@ -170,4 +176,11 @@ export const projects = sqliteTable("projects", {
   demoUrl: text("demo_url"),
   sortOrder: integer("sort_order").notNull(),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+  rowVersion: integer("row_version").notNull().default(1),
 }, (table) => [index("projects_order_idx").on(table.sortOrder)]);
+
+export const studioRestorePoints = sqliteTable("studio_restore_points", {
+  id: text("id").primaryKey(),
+  payload: text("payload").notNull(),
+  createdAt: text("created_at").notNull(),
+});

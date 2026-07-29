@@ -10,7 +10,9 @@ const wrangler = resolve(
   process.platform === "win32" ? "wrangler.cmd" : "wrangler",
 );
 const config = resolve(projectRoot, "wrangler.local.jsonc");
-const persistence = resolve(projectRoot, ".wrangler", "state");
+const persistence = process.env.LOCAL_D1_PERSIST_TO
+  ? resolve(projectRoot, process.env.LOCAL_D1_PERSIST_TO)
+  : resolve(projectRoot, ".wrangler", "state");
 const databaseState = resolve(persistence, "v3", "d1");
 const binding = "DB";
 const action = process.argv[2] ?? "migrate";

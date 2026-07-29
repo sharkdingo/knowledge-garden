@@ -11,12 +11,18 @@ type ArticleFilter = "全部" | ArticleCategory;
 export function ArchiveBrowser({
   articles,
   categories,
+  emptyState,
   initialFilter = "全部",
   initialQuery = "",
   initialYear = "",
 }: {
   articles: ArticleSummary[];
   categories: ArticleCategory[];
+  emptyState: {
+    eyebrow: string;
+    title: string;
+    description: string;
+  };
   initialFilter?: ArticleFilter;
   initialQuery?: string;
   initialYear?: string;
@@ -52,9 +58,9 @@ export function ArchiveBrowser({
   if (!articles.length) {
     return (
       <ContentEmptyState
-        eyebrow="WRITING / READY"
-        title="还没有发布文章"
-        description="文章区只展示从内容工作室正式发布的真实内容，不会自动生成占位文章。"
+        eyebrow={emptyState.eyebrow}
+        title={emptyState.title}
+        description={emptyState.description}
       />
     );
   }
@@ -122,10 +128,27 @@ export function ArchiveBrowser({
               <div>
                 {yearArticles.map((article) => (
                   <article className="archive-row" key={article.slug}>
-                    <time dateTime={article.date}>{article.date.slice(5)}</time>
-                    <h3><Link href={`/writing/${article.slug}`}>{article.title}</Link></h3>
-                    <span className="category">{article.category}</span>
-                    <span>{article.minutes} 分钟阅读</span>
+                    <time dateTime={article.date}>{article.date.slice(5, 10)}</time>
+                    <div className="archive-row-main">
+                      <h3><Link href={`/writing/${article.slug}`}>{article.title}</Link></h3>
+                      <p>{article.summary}</p>
+                      {article.tags.length > 0 && (
+                        <div aria-label="文章标签">
+                          {article.tags.slice(0, 4).map((tag) => (
+                            <Link href={`/explore?q=${encodeURIComponent(tag)}`} key={tag}>
+                              #{tag}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="archive-row-meta">
+                      {article.featured && <strong>推荐</strong>}
+                      <Link href={`/writing?category=${encodeURIComponent(article.category)}`}>
+                        {article.category}
+                      </Link>
+                      <span>{article.minutes} 分钟</span>
+                    </div>
                   </article>
                 ))}
               </div>

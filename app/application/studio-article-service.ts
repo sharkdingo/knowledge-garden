@@ -6,6 +6,7 @@ import type {
   StudioRevisionReason,
 } from "../domain/studio";
 import { StudioValidationError } from "./studio-validation";
+import { StudioConflictError } from "./studio-validation";
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const STATUS = new Set(["draft", "scheduled", "published", "archived"]);
@@ -136,11 +137,10 @@ export class StudioArticleService {
       throw new StudioValidationError("这个 Slug 已经被使用。");
     }
     await this.repository.createStudioArticle(normalized);
-    await this.repository.deleteStudioArticleDraft(normalized.slug);
     return normalized.slug;
   }
 
-  async update(slug: string, input: StudioArticleInput) {
+  async update(slug: string, input: StudioArticleInput, expectedVersion: number) {
     const normalized = normalize(input);
     if (normalized.slug !== slug) {
       throw new StudioValidationError("已发布文章的 Slug 不能直接修改。");
@@ -156,12 +156,19 @@ export class StudioArticleService {
       normalized.status === "draft" &&
       (existing.status === "published" || existing.status === "scheduled")
     ) reason = "unpublished";
-    await this.repository.updateStudioArticle(normalized, reason);
-    await this.repository.deleteStudioArticleDraft(slug);
+    const version = await this.repository.updateStudioArticle(
+      normalized,
+      expectedVersion,
+      reason,
+    );
+    if (!version) throw new StudioConflictError("文章");
+    return version;
   }
 
-  archive(slug: string) {
-    return this.repository.archiveStudioArticle(slug);
+  async archive(slug: string, expectedVersion: number) {
+    const version = await this.repository.archiveStudioArticle(slug, expectedVersion);
+    if (!version) throw new StudioConflictError("文章");
+    return version;
   }
 
   draft(slug: string): Promise<StudioArticleDraft | null> {
@@ -191,12 +198,20 @@ export class StudioArticleService {
     return this.repository.listStudioArticleRevisions(slug);
   }
 
-  async restore(slug: string, revisionId: string): Promise<StudioArticle> {
+  async restore(
+    slug: string,
+    revisionId: string,
+    expectedVersion: number,
+  ): Promise<StudioArticle> {
     const revision = await this.repository.findStudioArticleRevision(slug, revisionId);
     if (!revision) throw new StudioValidationError("找不到需要恢复的版本。");
     const normalized = normalize(revision);
-    await this.repository.updateStudioArticle(normalized, "restored");
-    await this.repository.deleteStudioArticleDraft(slug);
+    const version = await this.repository.updateStudioArticle(
+      normalized,
+      expectedVersion,
+      "restored",
+    );
+    if (!version) throw new StudioConflictError("文章");
     const restored = await this.repository.findStudioArticle(slug);
     if (!restored) throw new StudioValidationError("版本恢复后无法读取文章。");
     return restored;

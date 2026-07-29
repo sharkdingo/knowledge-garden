@@ -29,7 +29,7 @@ test("algorithm notes use a dedicated domain aggregate and D1 adapter", async ()
 });
 
 test("the public notebook is persistent, searchable, and deeply readable", async () => {
-  const [schemaMigration, contentMigration, enhancementMigration, archive, page, detail, codeDeck, discovery, sitemap, feed] = await Promise.all([
+  const [schemaMigration, contentMigration, enhancementMigration, archive, page, detail, codeDeck, searchRepository, sitemap, feed] = await Promise.all([
     readFile("drizzle/0012_clever_luckman.sql", "utf8"),
     readFile("drizzle/0013_first_algorithm_note.sql", "utf8"),
     readFile("drizzle/0014_peaceful_purple_man.sql", "utf8"),
@@ -37,7 +37,7 @@ test("the public notebook is persistent, searchable, and deeply readable", async
     readFile("app/problems/page.tsx", "utf8"),
     readFile("app/problems/[slug]/page.tsx", "utf8"),
     readFile("app/problems/[slug]/algorithm-code-deck.tsx", "utf8"),
-    readFile("app/application/discovery-service.ts", "utf8"),
+    readFile("app/infrastructure/d1-search-repository.ts", "utf8"),
     readFile("app/sitemap.ts", "utf8"),
     readFile("app/feed.xml/route.ts", "utf8"),
   ]);
@@ -65,7 +65,8 @@ test("the public notebook is persistent, searchable, and deeply readable", async
   assert.match(codeDeck, /role="tabpanel"/);
   assert.match(codeDeck, /ArrowRight/);
   assert.match(codeDeck, /copyErrorLabel/);
-  assert.match(discovery, /type: "题解"/);
+  assert.match(searchRepository, /'题解'/);
+  assert.match(searchRepository, /algorithm_problems/);
   assert.match(sitemap, /\/problems/);
   assert.match(feed, /算法题解/);
 });

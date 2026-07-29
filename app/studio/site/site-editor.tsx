@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { StudioSiteSettings } from "../../domain/studio";
+import { studioRequest } from "../studio-client";
 
 export function SiteEditor({ initial }: { initial: StudioSiteSettings }) {
   const [settings, setSettings] = useState(initial);
@@ -339,13 +340,18 @@ export function SiteEditor({ initial }: { initial: StudioSiteSettings }) {
     setSaving(true);
     setMessage("");
     try {
-      const response = await fetch("/api/studio/site", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
-      });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "保存失败，请稍后重试。");
+      const result = await studioRequest<{ version?: string }>(
+        "/api/studio/site",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(settings),
+        },
+        "保存站点设置失败，请稍后重试。",
+      );
+      if (result.version) {
+        setSettings((current) => ({ ...current, version: result.version as string }));
+      }
       setDirty(false);
       setMessage("首页与主题设置已经保存。");
     } catch (error) {

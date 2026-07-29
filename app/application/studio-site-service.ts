@@ -2,7 +2,7 @@ import type {
   StudioSiteRepository,
   StudioSiteSettings,
 } from "../domain/studio";
-import { StudioValidationError } from "./studio-validation";
+import { StudioConflictError, StudioValidationError } from "./studio-validation";
 
 const COLOR = /^#[0-9a-f]{6}$/i;
 const IDENTIFIER = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -167,6 +167,7 @@ export class StudioSiteService {
       };
     });
     const normalized: StudioSiteSettings = {
+      version: settings.version,
       hero: {
         eyebrow: text(settings.hero.eyebrow, "眉题", 80),
         titleLines: settings.hero.titleLines.map((line) => text(line, "主标题", 80)).slice(0, 3),
@@ -301,6 +302,8 @@ export class StudioSiteService {
     if (!normalized.hero.titleLines.length || !normalized.hero.introLines.length) {
       throw new StudioValidationError("主标题和开场文案至少需要一行。");
     }
-    await this.repository.updateEditableSiteSettings(normalized);
+    const version = await this.repository.updateEditableSiteSettings(normalized);
+    if (!version) throw new StudioConflictError("站点设置");
+    return version;
   }
 }

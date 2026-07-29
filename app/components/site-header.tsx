@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { NavigationItem, SearchEntry, SiteProfile } from "../domain/content";
+import type { NavigationItem, SiteProfile } from "../domain/content";
 import { SearchPalette } from "./search-palette";
 import { ThemeToggle } from "./theme-toggle";
 import { OverlayLayer, useOverlayEnvironment } from "./overlay-layer";
@@ -11,29 +11,17 @@ export function SiteHeader({
   active,
   identity,
   navigation,
-  searchIndex,
-  immersive = false,
 }: {
   active: string;
   identity: SiteProfile["identity"];
   navigation: NavigationItem[];
-  searchIndex: SearchEntry[];
-  immersive?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
   useOverlayEnvironment({ active: menuOpen, bodyClass: "menu-open" });
   const closeMenuForSearch = useCallback(() => setMenuOpen(false), []);
-
-  useEffect(() => {
-    const update = () => setScrolled(window.scrollY > 36);
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
-  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -81,14 +69,8 @@ export function SiteHeader({
     };
   }, [menuOpen]);
 
-  const headerClass = [
-    "site-header",
-    immersive ? "is-immersive" : "",
-    scrolled || menuOpen ? "is-scrolled" : "",
-  ].filter(Boolean).join(" ");
-
   return (
-    <header ref={headerRef} className={headerClass}>
+    <header ref={headerRef} className="site-header">
       <div className="header-inner">
         <Link
           className="brand"
@@ -132,7 +114,7 @@ export function SiteHeader({
         </nav>
 
         <div className="header-actions">
-          <SearchPalette index={searchIndex} onOpen={closeMenuForSearch} />
+          <SearchPalette onOpen={closeMenuForSearch} />
           <ThemeToggle />
         </div>
       </div>

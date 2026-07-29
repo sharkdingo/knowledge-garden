@@ -57,6 +57,7 @@ export function ProblemArchive({
       <h2 id="problem-archive-title" className="sr-only">{config.archiveTitle}</h2>
       <div className="problem-toolbar">
         <label>
+          <span className="sr-only">{config.searchPlaceholder}</span>
           <span aria-hidden="true">⌕</span>
           <input
             type="search"

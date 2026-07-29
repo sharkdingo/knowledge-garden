@@ -8,6 +8,9 @@ import type {
   StudioArticleRevision,
   StudioArticleSummary,
   StudioCategory,
+  StudioCategoryDeleteResult,
+  StudioCategoryInput,
+  StudioCategoryRepository,
   StudioOverview,
   StudioProject,
   StudioProjectInput,
@@ -32,6 +35,7 @@ type ArticleRow = {
   callout_label: string | null;
   callout_lines: string | null;
   status: "draft" | "scheduled" | "published" | "archived";
+  row_version: number;
 };
 
 type SectionRow = {
@@ -56,6 +60,7 @@ type StudioProjectRow = {
   demo_url: string | null;
   sort_order: number;
   archived: number;
+  row_version: number;
 };
 
 function database(): D1Database {
@@ -82,6 +87,7 @@ function mapSummary(row: ArticleRow): StudioArticleSummary {
     publishedAt: row.published_at,
     updatedLabel: row.display_date,
     featured: Boolean(row.featured),
+    version: Number(row.row_version),
   };
 }
 
@@ -111,6 +117,7 @@ function toArticleInput(article: StudioArticle): StudioArticleInput {
 export class D1StudioRepository
   implements
     StudioArticleRepository,
+    StudioCategoryRepository,
     StudioProjectRepository,
     StudioSiteRepository
 {
@@ -158,7 +165,7 @@ export class D1StudioRepository
       SELECT
         a.slug, a.title, a.summary, a.published_at, a.display_date,
         a.category_id, c.name AS category_name, a.minutes, a.featured,
-        a.lead, a.quote, a.callout_label, a.callout_lines, a.status
+        a.lead, a.quote, a.callout_label, a.callout_lines, a.status, a.row_version
       FROM articles a
       INNER JOIN categories c ON c.id = a.category_id
       ORDER BY
@@ -175,7 +182,7 @@ export class D1StudioRepository
         SELECT
           a.slug, a.title, a.summary, a.published_at, a.display_date,
           a.category_id, c.name AS category_name, a.minutes, a.featured,
-          a.lead, a.quote, a.callout_label, a.callout_lines, a.status
+          a.lead, a.quote, a.callout_label, a.callout_lines, a.status, a.row_version
         FROM articles a
         INNER JOIN categories c ON c.id = a.category_id
         WHERE a.slug = ?
@@ -219,14 +226,67 @@ export class D1StudioRepository
 
   async listStudioCategories(): Promise<StudioCategory[]> {
     const result = await database()
-      .prepare("SELECT id, name FROM categories ORDER BY sort_order")
+      .prepare(`
+        SELECT
+          c.id, c.name, c.description, c.sort_order AS sortOrder,
+          COUNT(a.slug) AS articleCount
+        FROM categories c
+        LEFT JOIN articles a ON a.category_id = c.id
+        GROUP BY c.id, c.name, c.description, c.sort_order
+        ORDER BY c.sort_order, c.name
+      `)
       .all<StudioCategory>();
     return result.results ?? [];
   }
 
+  async findStudioCategory(id: string): Promise<StudioCategory | null> {
+    return await database().prepare(`
+      SELECT
+        c.id, c.name, c.description, c.sort_order AS sortOrder,
+        COUNT(a.slug) AS articleCount
+      FROM categories c
+      LEFT JOIN articles a ON a.category_id = c.id
+      WHERE c.id = ?
+      GROUP BY c.id, c.name, c.description, c.sort_order
+    `).bind(id).first<StudioCategory>();
+  }
+
+  async createStudioCategory(input: StudioCategoryInput): Promise<void> {
+    await database().prepare(`
+      INSERT INTO categories (id, name, description, sort_order)
+      VALUES (?, ?, ?, ?)
+    `).bind(input.id, input.name, input.description, input.sortOrder).run();
+  }
+
+  async updateStudioCategory(input: StudioCategoryInput): Promise<void> {
+    await database().prepare(`
+      UPDATE categories
+      SET name = ?, description = ?, sort_order = ?
+      WHERE id = ?
+    `).bind(input.name, input.description, input.sortOrder, input.id).run();
+  }
+
+  async deleteStudioCategory(id: string): Promise<StudioCategoryDeleteResult> {
+    const d1 = database();
+    const [categoryResult, deleteResult] = await d1.batch([
+      d1.prepare("SELECT 1 AS found FROM categories WHERE id = ? LIMIT 1").bind(id),
+      d1.prepare(`
+        DELETE FROM categories
+        WHERE id = ?
+          AND NOT EXISTS (
+            SELECT 1 FROM articles WHERE category_id = ?
+          )
+      `).bind(id, id),
+    ]);
+    if (!(categoryResult.results?.[0] as { found?: number } | undefined)?.found) {
+      return "missing";
+    }
+    return deleteResult.meta.changes ? "deleted" : "in-use";
+  }
+
   async createStudioArticle(input: StudioArticleInput): Promise<void> {
     const d1 = database();
-    const relations = await this.prepareArticleRelations(d1, input);
+    const relations = this.prepareArticleRelations(d1, input);
     const revision = this.prepareRevision(d1, input, "created");
     await d1.batch([
       d1.prepare(`
@@ -256,9 +316,11 @@ export class D1StudioRepository
 
   async updateStudioArticle(
     input: StudioArticleInput,
+    expectedVersion: number,
     reason: StudioRevisionReason = "saved",
-  ): Promise<void> {
+  ): Promise<number | null> {
     const d1 = database();
+    const writeToken = crypto.randomUUID();
     const previous = await this.findStudioArticle(input.slug);
     const existingRevision = await d1.prepare(`
       SELECT 1 AS found
@@ -266,7 +328,7 @@ export class D1StudioRepository
       WHERE article_slug = ?
       LIMIT 1
     `).bind(input.slug).first<{ found: number }>();
-    const relations = await this.prepareArticleRelations(d1, input);
+    const relations = this.prepareArticleRelations(d1, input, writeToken);
     const revisionTime = Date.now();
     const baseline = previous && !existingRevision
       ? [this.prepareRevision(
@@ -274,6 +336,7 @@ export class D1StudioRepository
           toArticleInput(previous),
           "baseline",
           new Date(revisionTime - 1).toISOString(),
+          writeToken,
         )]
       : [];
     const revision = this.prepareRevision(
@@ -281,15 +344,17 @@ export class D1StudioRepository
       input,
       reason,
       new Date(revisionTime).toISOString(),
+      writeToken,
     );
-    await d1.batch([
+    const results = await d1.batch([
       d1.prepare(`
         UPDATE articles
         SET
           title = ?, summary = ?, published_at = ?, display_date = ?,
           category_id = ?, minutes = ?, featured = ?, lead = ?, quote = ?,
-          callout_label = ?, callout_lines = ?, status = ?
-        WHERE slug = ?
+          callout_label = ?, callout_lines = ?, status = ?,
+          row_version = row_version + 1, write_token = ?
+        WHERE slug = ? AND row_version = ?
       `).bind(
         input.title,
         input.summary,
@@ -303,23 +368,40 @@ export class D1StudioRepository
         input.calloutLabel || null,
         input.calloutLines.length ? JSON.stringify(input.calloutLines) : null,
         input.status,
+        writeToken,
         input.slug,
+        expectedVersion,
       ),
       ...relations,
       ...baseline,
       revision,
+      d1.prepare(`
+        DELETE FROM article_drafts
+        WHERE article_slug = ?
+          AND EXISTS (
+            SELECT 1 FROM articles WHERE slug = ? AND write_token = ?
+          )
+      `).bind(input.slug, input.slug, writeToken),
+      d1.prepare(`
+        DELETE FROM article_revisions
+        WHERE article_slug = ?
+          AND id NOT IN (
+            SELECT id
+            FROM article_revisions
+            WHERE article_slug = ?
+            ORDER BY created_at DESC
+            LIMIT 30
+          )
+          AND EXISTS (
+            SELECT 1 FROM articles WHERE slug = ? AND write_token = ?
+          )
+      `).bind(input.slug, input.slug, input.slug, writeToken),
+      d1.prepare(
+        "UPDATE articles SET write_token = NULL WHERE slug = ? AND write_token = ?",
+      ).bind(input.slug, writeToken),
     ]);
-    await d1.prepare(`
-      DELETE FROM article_revisions
-      WHERE article_slug = ?
-        AND id NOT IN (
-          SELECT id
-          FROM article_revisions
-          WHERE article_slug = ?
-          ORDER BY created_at DESC
-          LIMIT 30
-        )
-    `).bind(input.slug, input.slug).run();
+    if (!results[0].meta.changes) return null;
+    return expectedVersion + 1;
   }
 
   private prepareRevision(
@@ -327,43 +409,53 @@ export class D1StudioRepository
     input: StudioArticleInput,
     reason: StudioRevisionReason,
     createdAt = new Date().toISOString(),
+    writeToken?: string,
   ): D1PreparedStatement {
-    return d1.prepare(`
-      INSERT INTO article_revisions (
-        id, article_slug, payload, reason, created_at
-      ) VALUES (?, ?, ?, ?, ?)
-    `).bind(
+    const statement = writeToken
+      ? `
+        INSERT INTO article_revisions (
+          id, article_slug, payload, reason, created_at
+        )
+        SELECT ?, ?, ?, ?, ?
+        WHERE EXISTS (
+          SELECT 1 FROM articles WHERE slug = ? AND write_token = ?
+        )
+      `
+      : `
+        INSERT INTO article_revisions (
+          id, article_slug, payload, reason, created_at
+        ) VALUES (?, ?, ?, ?, ?)
+      `;
+    const values = [
       `revision-${crypto.randomUUID()}`,
       input.slug,
       JSON.stringify(input),
       reason,
       createdAt,
+    ];
+    return d1.prepare(statement).bind(
+      ...values,
+      ...(writeToken ? [input.slug, writeToken] : []),
     );
   }
 
-  private async prepareArticleRelations(
+  private prepareArticleRelations(
     d1: D1Database,
     input: StudioArticleInput,
-  ): Promise<D1PreparedStatement[]> {
+    writeToken?: string,
+  ): D1PreparedStatement[] {
     const tags = [...new Set(input.tags)];
-    if (tags.length) {
-      await d1.batch(tags.map((tag) =>
+
+    if (!writeToken) return [
+      d1.prepare("DELETE FROM article_sections WHERE article_slug = ?").bind(input.slug),
+      d1.prepare("DELETE FROM article_tags WHERE article_slug = ?").bind(input.slug),
+      ...tags.map((tag) =>
         d1.prepare(`
           INSERT INTO tags (id, name)
           VALUES (?, ?)
           ON CONFLICT(name) DO NOTHING
         `).bind(`tag-${crypto.randomUUID()}`, tag)
-      ));
-    }
-    const tagRows = tags.length
-      ? await d1.prepare(
-          `SELECT id, name FROM tags WHERE name IN (${tags.map(() => "?").join(", ")})`,
-        ).bind(...tags).all<{ id: string; name: string }>()
-      : { results: [] as { id: string; name: string }[] };
-
-    return [
-      d1.prepare("DELETE FROM article_sections WHERE article_slug = ?").bind(input.slug),
-      d1.prepare("DELETE FROM article_tags WHERE article_slug = ?").bind(input.slug),
+      ),
       ...input.sections.map((section, index) =>
         d1.prepare(`
           INSERT INTO article_sections (
@@ -371,22 +463,82 @@ export class D1StudioRepository
           ) VALUES (?, ?, ?, ?, ?)
         `).bind(input.slug, section.id, section.title, JSON.stringify(section.paragraphs), index)
       ),
-      ...(tagRows.results ?? []).map((tag) =>
-        d1.prepare(
-          "INSERT INTO article_tags (article_slug, tag_id) VALUES (?, ?)",
-        ).bind(input.slug, tag.id)
+      ...tags.map((tag) =>
+        d1.prepare(`
+          INSERT INTO article_tags (article_slug, tag_id)
+          SELECT ?, id FROM tags WHERE name = ?
+        `).bind(input.slug, tag)
+      ),
+    ];
+
+    return [
+      d1.prepare(`
+        DELETE FROM article_sections
+        WHERE article_slug = ?
+          AND EXISTS (
+            SELECT 1 FROM articles WHERE slug = ? AND write_token = ?
+          )
+      `)
+        .bind(input.slug, input.slug, writeToken),
+      d1.prepare(`
+        DELETE FROM article_tags
+        WHERE article_slug = ?
+          AND EXISTS (
+            SELECT 1 FROM articles WHERE slug = ? AND write_token = ?
+          )
+      `)
+        .bind(input.slug, input.slug, writeToken),
+      ...tags.map((tag) =>
+        d1.prepare(`
+          INSERT OR IGNORE INTO tags (id, name)
+          SELECT ?, ?
+          WHERE EXISTS (
+            SELECT 1 FROM articles WHERE slug = ? AND write_token = ?
+          )
+        `).bind(`tag-${crypto.randomUUID()}`, tag, input.slug, writeToken)
+      ),
+      ...input.sections.map((section, index) =>
+        d1.prepare(`
+          INSERT INTO article_sections (
+            article_slug, section_id, title, paragraphs, sort_order
+          )
+          SELECT ?, ?, ?, ?, ?
+          WHERE EXISTS (
+            SELECT 1 FROM articles WHERE slug = ? AND write_token = ?
+          )
+        `).bind(
+          input.slug,
+          section.id,
+          section.title,
+          JSON.stringify(section.paragraphs),
+          index,
+          input.slug,
+          writeToken,
+        )
+      ),
+      ...tags.map((tag) =>
+        d1.prepare(`
+          INSERT INTO article_tags (article_slug, tag_id)
+          SELECT ?, id
+          FROM tags
+          WHERE name = ?
+            AND EXISTS (
+              SELECT 1 FROM articles WHERE slug = ? AND write_token = ?
+            )
+        `).bind(input.slug, tag, input.slug, writeToken)
       ),
     ];
   }
 
-  async archiveStudioArticle(slug: string): Promise<void> {
+  async archiveStudioArticle(slug: string, expectedVersion: number): Promise<number | null> {
     const article = await this.findStudioArticle(slug);
-    if (!article) return;
-    await this.updateStudioArticle(
+    if (!article) return null;
+    const version = await this.updateStudioArticle(
       { ...toArticleInput(article), status: "archived" },
+      expectedVersion,
       "archived",
     );
-    await this.deleteStudioArticleDraft(slug);
+    return version;
   }
 
   async getStudioArticleDraft(slug: string): Promise<StudioArticleDraft | null> {
@@ -471,7 +623,7 @@ export class D1StudioRepository
       SELECT
         id, name, subtitle, description, status, status_label, category, stack,
         updated_at, visual, related_article_slug, repository_url, demo_url,
-        sort_order, archived
+        sort_order, archived, row_version
       FROM projects
       ORDER BY archived, sort_order, name
     `).all<StudioProjectRow>();
@@ -483,7 +635,7 @@ export class D1StudioRepository
       SELECT
         id, name, subtitle, description, status, status_label, category, stack,
         updated_at, visual, related_article_slug, repository_url, demo_url,
-        sort_order, archived
+        sort_order, archived, row_version
       FROM projects
       WHERE id = ?
       LIMIT 1
@@ -512,6 +664,7 @@ export class D1StudioRepository
         : undefined,
       sortOrder: row.sort_order,
       archived: Boolean(row.archived),
+      version: Number(row.row_version),
     };
   }
 
@@ -541,15 +694,18 @@ export class D1StudioRepository
     ).run();
   }
 
-  async updateStudioProject(input: StudioProjectInput): Promise<void> {
-    await database().prepare(`
+  async updateStudioProject(
+    input: StudioProjectInput,
+    expectedVersion: number,
+  ): Promise<number | null> {
+    const result = await database().prepare(`
       UPDATE projects
       SET
         name = ?, subtitle = ?, description = ?, status = ?, status_label = ?,
         category = ?, stack = ?, updated_at = ?, visual = ?,
         related_article_slug = ?, repository_url = ?, demo_url = ?,
-        sort_order = ?, archived = ?
-      WHERE id = ?
+        sort_order = ?, archived = ?, row_version = row_version + 1
+      WHERE id = ? AND row_version = ?
     `).bind(
       input.name,
       input.subtitle,
@@ -566,24 +722,32 @@ export class D1StudioRepository
       input.sortOrder,
       input.archived ? 1 : 0,
       input.id,
+      expectedVersion,
     ).run();
+    return result.meta.changes ? expectedVersion + 1 : null;
   }
 
-  async archiveStudioProject(id: string): Promise<void> {
-    await database()
-      .prepare("UPDATE projects SET archived = 1 WHERE id = ?")
-      .bind(id)
+  async archiveStudioProject(id: string, expectedVersion: number): Promise<number | null> {
+    const result = await database()
+      .prepare(`
+        UPDATE projects
+        SET archived = 1, row_version = row_version + 1
+        WHERE id = ? AND row_version = ?
+      `)
+      .bind(id, expectedVersion)
       .run();
+    return result.meta.changes ? expectedVersion + 1 : null;
   }
 
   async getEditableSiteSettings(): Promise<StudioSiteSettings> {
     const row = await database()
-      .prepare("SELECT value FROM site_settings WHERE key = 'profile'")
-      .first<{ value: string }>();
+      .prepare("SELECT value, updated_at FROM site_settings WHERE key = 'profile'")
+      .first<{ value: string; updated_at: string }>();
     if (!row) throw new Error("Missing required site setting: profile.");
     const profile = parseJson<EditableSiteProfile | null>(row.value, null);
     if (!profile) throw new Error("Invalid site profile.");
     return {
+      version: row.updated_at,
       hero: {
         eyebrow: profile.hero.eyebrow,
         titleLines: profile.hero.titleLines,
@@ -616,7 +780,7 @@ export class D1StudioRepository
     };
   }
 
-  async updateEditableSiteSettings(settings: StudioSiteSettings): Promise<void> {
+  async updateEditableSiteSettings(settings: StudioSiteSettings): Promise<string | null> {
     const d1 = database();
     const row = await d1
       .prepare("SELECT value FROM site_settings WHERE key = 'profile'")
@@ -671,16 +835,27 @@ export class D1StudioRepository
     };
     const reactionIds = settings.engagement.options.map((option) => option.id);
     const reactionPlaceholders = reactionIds.map(() => "?").join(", ");
-    await d1.batch([
+    const obsoleteReactionPredicate = reactionIds.length
+      ? `reaction_id NOT IN (${reactionPlaceholders})`
+      : "1 = 1";
+    const updatedAt = new Date().toISOString();
+    const [, updateResult] = await d1.batch([
+      d1.prepare(`
+        DELETE FROM article_reactions
+        WHERE ${obsoleteReactionPredicate}
+          AND EXISTS (
+            SELECT 1
+            FROM site_settings
+            WHERE key = 'profile' AND updated_at = ?
+          )
+      `).bind(...reactionIds, settings.version),
       d1.prepare(`
         UPDATE site_settings
         SET value = ?, updated_at = ?
-        WHERE key = 'profile'
-      `).bind(JSON.stringify(next), new Date().toISOString()),
-      d1.prepare(`
-        DELETE FROM article_reactions
-        WHERE reaction_id NOT IN (${reactionPlaceholders})
-      `).bind(...reactionIds),
+        WHERE key = 'profile' AND updated_at = ?
+      `).bind(JSON.stringify(next), updatedAt, settings.version),
     ]);
+    if (!updateResult.meta.changes) return null;
+    return updatedAt;
   }
 }

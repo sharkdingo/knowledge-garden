@@ -37,7 +37,7 @@ This keeps SOLID boundaries practical:
 | Schema and canonical site configuration | Versioned Drizzle migrations |
 | Images and compiled assets | Edge-served deployment assets |
 | Device-only theme, reading preference, and anonymous reader key | `localStorage` |
-| Health/readiness | `/api/health` with a live D1 query |
+| Health/readiness | `/api/health` with migration, capability-table, and profile validation |
 
 D1 is the source of truth for navigation, site identity, page copy, theme
 tokens, easter-egg messages, article bodies, sections, categories, tags, and
@@ -99,11 +99,26 @@ and atomic article/relationship batches.
 Automatic recovery writes into `article_drafts`, not the public article record.
 Explicit saves create a bounded revision snapshot, and restore operations pass
 through the same validation and repository boundary as ordinary updates.
+Article content, relationships, revision retention, and recovery-draft cleanup
+commit as one write-token-guarded batch. Recovery drafts carry a cascading
+foreign key to their article, and stale article or algorithm writers cannot
+create unattached taxonomy rows.
 Published and already-live scheduled articles expose a direct public-page link
 in Studio, closing the owner verification loop without exposing draft URLs.
 Reader-response routes call a dedicated application service; only the D1
 engagement adapter can issue response SQL. Studio reads the same persisted
 aggregate instead of presenting sample analytics.
+
+Studio JSON endpoints share one presentation boundary for validation,
+optimistic-concurrency, and unexpected infrastructure errors. Known errors stay
+actionable, internal adapter details are never returned to the browser, and all
+responses are explicitly non-cacheable. Site-profile saves and cleanup of
+obsolete reader-response options use the same optimistic D1 batch so a stale or
+partially failed save cannot split configuration from its persisted signals.
+Studio client components likewise share one request boundary for network
+failure, cancellation, expired authentication, response decoding, and safe
+server messages; feature editors remain responsible only for their own workflow
+state.
 
 The playground derives its daily constellation from published article/tag
 relationships. Only the current device's puzzle progress is browser-local; the

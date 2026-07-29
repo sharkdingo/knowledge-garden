@@ -120,6 +120,41 @@
       "when": 1785062410319,
       "tag": "0016_correct-public-name",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1785237000000,
+      "tag": "0017_architecture_closure",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1785240900000,
+      "tag": "0018_editor_concurrency",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1785242100000,
+      "tag": "0019_safe_restore",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1785283200000,
+      "tag": "0020_editorial_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1785327698306,
+      "tag": "0021_article_draft_integrity",
+      "breakpoints": true
     }
   ]
 }

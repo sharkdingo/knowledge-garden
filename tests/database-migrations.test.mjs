@@ -80,8 +80,15 @@ test("migrations create an empty production content graph with complete capabili
   assert.equal(database.prepare("SELECT COUNT(*) AS count FROM article_reactions WHERE article_slug = ?").get(articleSlug).count, 1);
   assert.equal(database.prepare("SELECT reaction_id FROM article_reactions WHERE article_slug = ?").get(articleSlug).reaction_id, "clearer");
   database.prepare("DELETE FROM articles WHERE slug = ?").run(articleSlug);
+  assert.equal(database.prepare("SELECT COUNT(*) AS count FROM article_drafts WHERE article_slug = ?").get(articleSlug).count, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS count FROM article_revisions WHERE article_slug = ?").get(articleSlug).count, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS count FROM article_reactions WHERE article_slug = ?").get(articleSlug).count, 0);
+  assert.throws(() => {
+    database.prepare(`
+      INSERT INTO article_drafts (article_slug, payload, saved_at)
+      VALUES ('missing-article', '{}', '2026-07-29T00:00:00.000Z')
+    `).run();
+  }, /FOREIGN KEY constraint failed/);
   database.exec("ROLLBACK");
   database.exec("BEGIN");
   database.prepare("INSERT INTO tags (id, name) VALUES ('test-tag', 'Test Tag')").run();
@@ -154,10 +161,10 @@ test("migrations create an empty production content graph with complete capabili
   assert.equal(profile.playground.constellation.noiseBudget, 3);
   assert.equal(profile.playground.runner, undefined);
   assert.equal(profile.playground.fusion, undefined);
-  assert.equal(profile.theme.dark.faint, "#8b9195");
-  assert.equal(profile.theme.dark.lineStrong, "#687074");
-  assert.equal(profile.theme.light.faint, "#6d7276");
-  assert.equal(profile.theme.light.lineStrong, "#8b9094");
+  assert.equal(profile.theme.dark.faint, "#89847b");
+  assert.equal(profile.theme.dark.lineStrong, "#6d665d");
+  assert.equal(profile.theme.light.faint, "#746f67");
+  assert.equal(profile.theme.light.lineStrong, "#8b847a");
   assert.equal(profile.hero.image, "/images/hero-knowledge-garden.webp");
   assert.equal(profile.about.image.src, "/images/identity-landscape.webp");
   assert.ok(contrastRatio(profile.theme.dark.faint, profile.theme.dark.surface) >= 4.5);
@@ -165,7 +172,7 @@ test("migrations create an empty production content graph with complete capabili
   assert.ok(contrastRatio(profile.theme.dark.lineStrong, profile.theme.dark.surface) >= 3);
   assert.ok(contrastRatio(profile.theme.light.lineStrong, profile.theme.light.surface) >= 3);
   assert.deepEqual(profile.hero.titleLines, ["把复杂的问题，", "写成清晰的路径。"]);
-  assert.equal(profile.hero.intro.enabled, true);
+  assert.equal(profile.hero.intro.enabled, false);
   assert.equal(profile.hero.intro.lines.length, 3);
   assert.equal(profile.hero.intro.replayLabel, "重播开场");
   assert.equal(profile.hero.intro.duration, 2200);

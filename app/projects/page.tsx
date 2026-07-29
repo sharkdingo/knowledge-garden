@@ -26,7 +26,7 @@ export default async function ProjectsPage() {
           <p>{intro.description}</p>
           <small>{projects.length} 个持续演进的项目</small>
         </header>
-        <ProjectBrowser projects={projects} />
+        <ProjectBrowser projects={projects} emptyState={intro} />
         {projects.length > 0 && <section className="activity-panel" aria-labelledby="activity-title">
           <div>
             <h2 id="activity-title">PROJECT SNAPSHOT / 当前状态</h2>

@@ -355,6 +355,7 @@ export type PlaygroundContent = {
 };
 
 export type SiteProfile = {
+  schemaVersion: number;
   identity: {
     name: string;
     shortName: string;

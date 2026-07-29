@@ -20,10 +20,12 @@ test("reading views retain constrained measures", async () => {
   assert.match(css, /\.article-page\s*\{[^}]*760px/s);
 });
 
-test("immersive effects respect reduced motion", async () => {
+test("the editorial system creates identity without an immersive overlay", async () => {
   const css = await readFile("app/globals.css", "utf8");
-  assert.match(css, /\.intro-stage/);
-  assert.match(css, /@keyframes intro-breathe/);
+  assert.match(css, /\.editorial-hero/);
+  assert.match(css, /--font-editorial/);
+  assert.match(css, /Visual hierarchy comes from type, measure, rules, and whitespace/);
+  assert.doesNotMatch(css, /@keyframes intro-breathe|\.entrance-sequence/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /animation-duration:\s*0\.01ms !important/);
 });

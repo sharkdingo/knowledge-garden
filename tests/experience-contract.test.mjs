@@ -68,22 +68,19 @@ test("playground turns real content relationships into a daily knowledge quest",
   assert.match(migration, /json_set/);
 });
 
-test("the first-visit entrance is optional, replayable, and motion-safe", async () => {
-  const [home, experience, css, migration] = await Promise.all([
+test("the home keeps delight contextual instead of blocking the first visit", async () => {
+  const [home, css, migration] = await Promise.all([
     readFile("app/page.tsx", "utf8"),
-    readFile("app/components/home-experience.tsx", "utf8"),
     readFile("app/globals.css", "utf8"),
-    readFile("drizzle/0006_knowledge_constellation.sql", "utf8"),
+    readFile("drizzle/0020_editorial_index.sql", "utf8"),
   ]);
-  assert.match(home, /HomeExperience/);
-  assert.match(experience, /prefers-reduced-motion: reduce/);
-  assert.match(experience, /role="dialog"/);
-  assert.match(experience, /aria-modal="true"/);
-  assert.match(experience, /event\.key === "Escape"/);
-  assert.match(experience, /knowledge-garden-intro-v1/);
-  assert.match(css, /\.home-replay/);
-  assert.match(css, /\.entrance-sequence/);
-  assert.match(migration, /replayLabel/);
+  assert.match(home, /editorial-hero/);
+  assert.match(home, /editorial-index/);
+  assert.ok(home.indexOf("home-latest") < home.indexOf("<DailySignal"));
+  assert.doesNotMatch(home, /HomeExperience|intro-stage/);
+  assert.doesNotMatch(css, /\.home-replay|\.entrance-sequence/);
+  assert.match(migration, /'\$\.hero\.intro\.enabled', json\('false'\)/);
+  await assert.rejects(access("app/components/home-experience.tsx"));
 });
 
 test("mobile navigation isolates context and preserves keyboard control", async () => {
@@ -101,16 +98,14 @@ test("mobile navigation isolates context and preserves keyboard control", async 
 });
 
 test("viewport overlays escape filtered and transformed ancestors", async () => {
-  const [search, header, entrance, confirmation, articlePage] = await Promise.all([
+  const [search, header, confirmation, articlePage] = await Promise.all([
     readFile("app/components/search-palette.tsx", "utf8"),
     readFile("app/components/site-header.tsx", "utf8"),
-    readFile("app/components/home-experience.tsx", "utf8"),
     readFile("app/studio/components/confirmation-dialog.tsx", "utf8"),
     readFile("app/writing/[slug]/page.tsx", "utf8"),
   ]);
   assert.match(search, /<OverlayLayer>/);
   assert.match(header, /<OverlayLayer>/);
-  assert.match(entrance, /<OverlayLayer>/);
   assert.match(confirmation, /<OverlayLayer>/);
   assert.ok(articlePage.indexOf("<ReadingProgress") < articlePage.indexOf("<main"));
   assert.ok(articlePage.indexOf("<ReadingFocus") < articlePage.indexOf("<main"));
@@ -128,16 +123,16 @@ test("article navigation remains available below the desktop breakpoint", async 
 });
 
 test("discovery links resolve to the selected archive or project", async () => {
-  const [explore, archive, discovery, projects] = await Promise.all([
+  const [explore, archive, searchRepository, projects] = await Promise.all([
     readFile("app/explore/page.tsx", "utf8"),
     readFile("app/writing/archive-browser.tsx", "utf8"),
-    readFile("app/application/discovery-service.ts", "utf8"),
+    readFile("app/infrastructure/d1-search-repository.ts", "utf8"),
     readFile("app/projects/project-browser.tsx", "utf8"),
   ]);
   assert.match(explore, /\/writing\?year=\$\{year\}/);
   assert.match(archive, /initialYear/);
   assert.match(archive, /searchParams\.set\("year"/);
-  assert.match(discovery, /\/projects#project-/);
+  assert.match(searchRepository, /\/projects#project-/);
   assert.match(projects, /id=\{`project-/);
 });
 

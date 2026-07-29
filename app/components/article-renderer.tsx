@@ -17,7 +17,12 @@ export function ArticleRenderer({ article }: { article: ArticleDocument }) {
       {article.quote && <blockquote>{article.quote}</blockquote>}
       {article.sections.map((section) => (
         <section key={section.id} aria-labelledby={section.id}>
-          <h2 id={section.id}>{section.title}</h2>
+          <h2 id={section.id}>
+            <a href={`#${section.id}`}>
+              {section.title}
+              <span aria-hidden="true">#</span>
+            </a>
+          </h2>
           {section.paragraphs.map((paragraph, index) => (
             <p key={`${section.id}-${index}`}>{paragraph}</p>
           ))}

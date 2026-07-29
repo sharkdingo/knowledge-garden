@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SearchEntry } from "../domain/content";
 import { rankSearchEntries, searchTokens } from "../domain/search";
@@ -38,10 +38,8 @@ function Highlighted({ value, query }: { value: string; query: string }) {
 }
 
 export function SearchPalette({
-  index,
   onOpen,
 }: {
-  index: SearchEntry[];
   onOpen?: () => void;
 }) {
   const router = useRouter();
@@ -50,10 +48,26 @@ export function SearchPalette({
   const [activeIndex, setActiveIndex] = useState(0);
   const [filter, setFilter] = useState<SearchFilter>("全部");
   const [recentSearches, setRecentSearches] = useState(readRecentSearches);
+  const [index, setIndex] = useState<SearchEntry[]>([]);
+  const [indexState, setIndexState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   useOverlayEnvironment({ active: open, bodyClass: "search-open", isolate: ".site-root" });
+
+  const loadIndex = useCallback(async () => {
+    if (indexState === "loading" || indexState === "ready") return;
+    setIndexState("loading");
+    try {
+      const response = await fetch("/api/search", { headers: { Accept: "application/json" } });
+      const payload = await response.json() as { entries?: SearchEntry[] };
+      if (!response.ok || !Array.isArray(payload.entries)) throw new Error("search unavailable");
+      setIndex(payload.entries);
+      setIndexState("ready");
+    } catch {
+      setIndexState("error");
+    }
+  }, [indexState]);
 
   const availableTags = useMemo(() => {
     const counts = new Map<string, number>();
@@ -116,15 +130,17 @@ export function SearchPalette({
         event.preventDefault();
         onOpen?.();
         setOpen(true);
+        void loadIndex();
       } else if (event.key === "/" && !typing) {
         event.preventDefault();
         onOpen?.();
         setOpen(true);
+        void loadIndex();
       }
     }
     window.addEventListener("keydown", shortcut);
     return () => window.removeEventListener("keydown", shortcut);
-  }, [onOpen]);
+  }, [loadIndex, onOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -159,7 +175,9 @@ export function SearchPalette({
   function onInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActiveIndex((current) => Math.min(results.length - 1, current + 1));
+      setActiveIndex((current) => results.length
+        ? Math.min(results.length - 1, current + 1)
+        : 0);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setActiveIndex((current) => Math.max(0, current - 1));
@@ -181,6 +199,7 @@ export function SearchPalette({
         onClick={() => {
           onOpen?.();
           setOpen(true);
+          void loadIndex();
         }}
       >
         <span aria-hidden="true">⌕</span>
@@ -206,6 +225,7 @@ export function SearchPalette({
               <button type="button" onClick={() => close()} aria-label="关闭搜索">×</button>
             </header>
             <label className="search-palette-input">
+              <span className="sr-only">搜索文章、题解与项目</span>
               <span aria-hidden="true">⌕</span>
               <input
                 ref={inputRef}
@@ -214,8 +234,10 @@ export function SearchPalette({
                 spellCheck={false}
                 autoComplete="off"
                 role="combobox"
+                aria-autocomplete="list"
                 aria-expanded="true"
                 aria-controls="search-palette-results"
+                aria-describedby="search-palette-summary"
                 aria-activedescendant={results[activeIndex] ? `search-result-${activeIndex}` : undefined}
                 placeholder="输入文章、项目、标签或技术关键词…"
                 onChange={(event) => {
@@ -255,11 +277,22 @@ export function SearchPalette({
                   ))}
                 </div>
               )}
-              <p className="search-palette-summary" role="status">
-                {query ? `找到 ${typeCounts[filter]} 条匹配内容` : "推荐从这些内容开始"}
+              <p
+                id="search-palette-summary"
+                className="search-palette-summary"
+                role="status"
+                aria-live="polite"
+              >
+                {indexState === "loading"
+                  ? "正在准备搜索…"
+                  : query ? `找到 ${typeCounts[filter]} 条匹配内容` : "推荐从这些内容开始"}
               </p>
             </div>
-            <ul id="search-palette-results" role="listbox">
+            <ul
+              id="search-palette-results"
+              role="listbox"
+              aria-busy={indexState === "loading"}
+            >
               {results.map((item, resultIndex) => (
                 <li
                   id={`search-result-${resultIndex}`}
@@ -289,7 +322,16 @@ export function SearchPalette({
                 </li>
               ))}
             </ul>
-            {!results.length && (
+            {indexState === "error" && (
+              <div className="search-palette-empty">
+                <strong>搜索暂时没有响应</strong>
+                <p>你的页面没有问题，可以重试或改用探索页浏览。</p>
+                <button type="button" onClick={() => {
+                  void loadIndex();
+                }}>重新加载</button>
+              </div>
+            )}
+            {indexState === "ready" && !results.length && (
               <div className="search-palette-empty">
                 <strong>没有找到对应节点</strong>
                 <p>试试更短的关键词，或者前往探索页按主题浏览。</p>

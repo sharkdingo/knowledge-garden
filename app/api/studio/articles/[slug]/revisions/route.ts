@@ -1,7 +1,12 @@
-import { StudioValidationError } from "../../../../../application/studio-article-service";
+import { StudioValidationError } from "../../../../../application/studio-validation";
 import { contentServices } from "../../../../../composition/content";
 import { authorizeStudioApi } from "../../../../../studio/studio-auth";
-import { readStudioJson } from "../../../../../studio/studio-request";
+import { readExpectedVersion, readStudioJson } from "../../../../../studio/studio-request";
+import { recordStudioAudit } from "../../../../../studio/studio-audit";
+import {
+  studioErrorResponse,
+  studioJson,
+} from "../../../../../studio/studio-response";
 
 export async function GET(
   _request: Request,
@@ -10,11 +15,12 @@ export async function GET(
   const access = await authorizeStudioApi();
   if (!access.authorized) return access.response;
   const { slug } = await params;
-  const revisions = await contentServices.studio.articles.revisions(slug);
-  return Response.json(
-    { revisions },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  try {
+    const revisions = await contentServices.studio.articles.revisions(slug);
+    return studioJson({ revisions });
+  } catch (error) {
+    return studioErrorResponse(error, "无法读取文章版本。");
+  }
 }
 
 export async function POST(
@@ -32,16 +38,19 @@ export async function POST(
     const article = await contentServices.studio.articles.restore(
       slug,
       body.revisionId.trim(),
+      readExpectedVersion(request),
     );
-    return Response.json(
+    await recordStudioAudit(access.user, {
+      action: "article.restore",
+      resourceType: "article",
+      resourceId: slug,
+      outcome: "succeeded",
+      metadata: { version: article.version },
+    });
+    return studioJson(
       { ok: true, article },
-      { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
-    const status = error instanceof StudioValidationError ? 400 : 500;
-    return Response.json(
-      { error: error instanceof Error ? error.message : "无法恢复文章版本。" },
-      { status, headers: { "Cache-Control": "no-store" } },
-    );
+    return studioErrorResponse(error, "无法恢复文章版本。");
   }
 }
