@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ChatGPTUser } from "../chatgpt-auth";
 import { chatGPTSignOutPath } from "../chatgpt-auth";
+import { StudioNavigation } from "./studio-navigation";
 
 const navigation = [
   { id: "overview", href: "/studio", label: "概览" },
@@ -30,20 +31,7 @@ export function StudioShell({
             <span aria-hidden="true">✦</span>
             内容工作室
           </Link>
-          <nav aria-label="内容工作室导航">
-            {navigation.map((item) => {
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={active === item.id ? "active" : undefined}
-                  aria-current={active === item.id ? "page" : undefined}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+          <StudioNavigation active={active} items={navigation} />
           <div className="studio-account">
             <span title={user.email}>{user.displayName}</span>
             <Link href="/">查看网站</Link>

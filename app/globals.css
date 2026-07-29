@@ -3667,11 +3667,17 @@ img {
   .studio-header nav {
     grid-column: 1 / -1;
     overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-padding-inline: 0.65rem;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
   }
 
   .studio-header nav a {
+    flex: 0 0 auto;
     min-height: 38px;
     padding-inline: 0.65rem;
+    scroll-snap-align: start;
   }
 
   .studio-main {
@@ -5445,13 +5451,12 @@ html.route-pending .route-progress {
 }
 
 html.route-pending .site-root > main {
-  opacity: 0.72;
-  transform: translateY(3px);
-  transition: opacity 180ms ease, transform 180ms ease;
+  opacity: 0.96;
+  transition: opacity 140ms ease;
 }
 
 html.route-arrived .site-root > main {
-  animation: route-arrive 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: route-arrive 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes route-progress {
@@ -5461,7 +5466,7 @@ html.route-arrived .site-root > main {
 }
 
 @keyframes route-arrive {
-  from { opacity: 0; transform: translateY(7px); }
+  from { opacity: 0.82; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -7230,9 +7235,9 @@ body::before {
 }
 
 .editorial-hero {
-  min-height: 590px;
+  min-height: min(548px, calc(100svh - 84px));
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr) 160px;
+  grid-template-columns: 172px minmax(0, 1fr) 112px;
   align-items: stretch;
   border-bottom: 1px solid var(--line-strong);
 }
@@ -7242,7 +7247,7 @@ body::before {
   flex-direction: column;
   align-items: flex-start;
   gap: 1.7rem;
-  padding: 88px 34px 48px 0;
+  padding: 72px 30px 42px 0;
   border-right: 1px solid var(--line);
   color: var(--faint);
   font-family: var(--font-mono), monospace;
@@ -7272,11 +7277,11 @@ body::before {
 
 .editorial-hero-copy {
   min-width: 0;
-  padding: 82px clamp(40px, 5vw, 72px) 48px;
+  padding: 66px clamp(36px, 4.4vw, 64px) 42px;
 }
 
 .editorial-hero-copy h1 {
-  max-width: 12ch;
+  max-width: none;
   margin: 0;
   color: var(--text-strong);
   font-family: var(--font-editorial);
@@ -7289,6 +7294,7 @@ body::before {
 
 .editorial-hero-copy h1 span {
   display: block;
+  white-space: nowrap;
 }
 
 .editorial-hero-copy .hero-lede {
@@ -7358,7 +7364,7 @@ body::before {
   padding-bottom: 44px;
   color: var(--line-strong);
   font-family: var(--font-sans), sans-serif;
-  font-size: clamp(4.5rem, 10vw, 8.5rem);
+  font-size: clamp(4rem, 7vw, 6.4rem);
   font-weight: 260;
   line-height: 0.8;
   letter-spacing: -0.08em;
@@ -7665,6 +7671,88 @@ a.home-start-card:focus-visible > strong {
   }
 }
 
+/* The full navigation needs more room than the page layouts beneath it. */
+@media (min-width: 761px) and (max-width: 1080px) {
+  .header-inner {
+    grid-template-columns: 1fr auto auto;
+    gap: 0.6rem;
+  }
+
+  .menu-toggle {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-content: center;
+    gap: 6px;
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .menu-toggle span {
+    width: 18px;
+    height: 1px;
+    background: var(--text);
+    transition: transform 160ms ease;
+  }
+
+  .menu-toggle.is-open span:first-child {
+    transform: translateY(3.5px) rotate(45deg);
+  }
+
+  .menu-toggle.is-open span:last-child {
+    transform: translateY(-3.5px) rotate(-45deg);
+  }
+
+  .primary-nav {
+    z-index: 3;
+    position: absolute;
+    top: calc(100% + 1px);
+    right: 0;
+    left: auto;
+    width: min(360px, calc(100vw - 72px));
+    height: auto;
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    padding: 0.45rem;
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    box-shadow: 0 18px 48px color-mix(in srgb, var(--bg) 72%, transparent);
+  }
+
+  .primary-nav.is-open {
+    display: flex;
+  }
+
+  .primary-nav a {
+    min-height: 48px;
+    justify-content: flex-start;
+    padding-inline: 0.85rem;
+  }
+
+  .primary-nav a::after {
+    display: none;
+  }
+
+  .primary-nav a.active {
+    background: var(--surface);
+    color: var(--accent);
+  }
+
+  .menu-backdrop {
+    position: fixed;
+    z-index: 49;
+    inset: 84px 0 0;
+    display: block;
+    width: 100%;
+    border: 0;
+    background: color-mix(in srgb, var(--bg) 54%, transparent);
+    cursor: default;
+    backdrop-filter: blur(4px);
+  }
+}
+
 @media (max-width: 760px) {
   .header-inner,
   .page-shell,
@@ -7729,6 +7817,10 @@ a.home-start-card:focus-visible > strong {
   .editorial-hero-copy h1 {
     max-width: 13ch;
     font-size: clamp(3.05rem, 14vw, 5.2rem);
+  }
+
+  .editorial-hero-copy h1 span {
+    white-space: normal;
   }
 
   .home-latest {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type ReadingSize = "compact" | "comfortable" | "large";
 type ReadingLeading = "balanced" | "relaxed";
@@ -49,6 +49,14 @@ export function ReadingFocus() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [preferences, setPreferences] = useState(readPreferences);
   const toolsRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+
+  const closeSettings = useCallback((restoreFocus = false) => {
+    setSettingsOpen(false);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => settingsButtonRef.current?.focus());
+    }
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -63,7 +71,7 @@ export function ReadingFocus() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         if (settingsOpen) {
-          setSettingsOpen(false);
+          closeSettings(true);
           return;
         }
         document.body.classList.remove("reading-focus");
@@ -79,7 +87,7 @@ export function ReadingFocus() {
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [settingsOpen]);
+  }, [closeSettings, settingsOpen]);
 
   useEffect(() => {
     applyPreferences(preferences);
@@ -116,6 +124,7 @@ export function ReadingFocus() {
         {focused && <small>Esc</small>}
       </button>
       <button
+        ref={settingsButtonRef}
         className="reading-settings-toggle"
         type="button"
         aria-expanded={settingsOpen}
@@ -130,10 +139,11 @@ export function ReadingFocus() {
           id="reading-preferences-panel"
           className="reading-preferences"
           aria-label="阅读排版设置"
+          aria-labelledby="reading-preferences-title"
         >
           <header>
-            <div><small>READING</small><strong>阅读排版</strong></div>
-            <button type="button" aria-label="关闭阅读设置" onClick={() => setSettingsOpen(false)}>×</button>
+            <div><small>READING</small><strong id="reading-preferences-title">阅读排版</strong></div>
+            <button type="button" aria-label="关闭阅读设置" onClick={() => closeSettings(true)}>×</button>
           </header>
           <fieldset>
             <legend>字号</legend>

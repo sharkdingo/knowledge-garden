@@ -83,7 +83,7 @@ test("the home keeps delight contextual instead of blocking the first visit", as
   await assert.rejects(access("app/components/home-experience.tsx"));
 });
 
-test("mobile navigation isolates context and preserves keyboard control", async () => {
+test("compact navigation isolates context and preserves keyboard control", async () => {
   const [header, css] = await Promise.all([
     readFile("app/components/site-header.tsx", "utf8"),
     readFile("app/globals.css", "utf8"),
@@ -93,7 +93,8 @@ test("mobile navigation isolates context and preserves keyboard control", async 
   assert.match(header, /<OverlayLayer>/);
   assert.match(header, /event\.key === "Escape"/);
   assert.match(header, /event\.key === "Tab"/);
-  assert.ok(header.includes('matchMedia("(min-width: 761px)")'));
+  assert.ok(header.includes('matchMedia("(min-width: 1081px)")'));
+  assert.match(css, /@media \(min-width: 761px\) and \(max-width: 1080px\)/);
   assert.match(css, /body\.menu-open\s*\{[^}]*overflow:\s*hidden/s);
 });
 

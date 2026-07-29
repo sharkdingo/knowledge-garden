@@ -54,7 +54,7 @@ export function SiteHeader({
       }
     }
 
-    const desktop = window.matchMedia("(min-width: 761px)");
+    const desktop = window.matchMedia("(min-width: 1081px)");
     const onBreakpointChange = () => {
       if (desktop.matches) setMenuOpen(false);
     };

@@ -80,19 +80,20 @@ export function SearchPalette({
       .map(([tag]) => tag);
   }, [index]);
 
+  const rankedResults = useMemo(() => rankSearchEntries(index, query), [index, query]);
+
   const results = useMemo(() => {
-    const ranked = rankSearchEntries(index, query);
-    return ranked
+    return rankedResults
       .filter((item) => filter === "全部" || item.type === filter)
       .slice(0, 8);
-  }, [filter, index, query]);
+  }, [filter, rankedResults]);
 
   const typeCounts = useMemo(() => ({
-    全部: rankSearchEntries(index, query).length,
-    文章: rankSearchEntries(index, query).filter((item) => item.type === "文章").length,
-    项目: rankSearchEntries(index, query).filter((item) => item.type === "项目").length,
-    题解: rankSearchEntries(index, query).filter((item) => item.type === "题解").length,
-  }), [index, query]);
+    全部: rankedResults.length,
+    文章: rankedResults.filter((item) => item.type === "文章").length,
+    项目: rankedResults.filter((item) => item.type === "项目").length,
+    题解: rankedResults.filter((item) => item.type === "题解").length,
+  }), [rankedResults]);
 
   function close(restoreFocus = true) {
     setOpen(false);
@@ -285,7 +286,9 @@ export function SearchPalette({
               >
                 {indexState === "loading"
                   ? "正在准备搜索…"
-                  : query ? `找到 ${typeCounts[filter]} 条匹配内容` : "推荐从这些内容开始"}
+                  : indexState === "error"
+                    ? "搜索服务暂时不可用"
+                    : query ? `找到 ${typeCounts[filter]} 条匹配内容` : "推荐从这些内容开始"}
               </p>
             </div>
             <ul
