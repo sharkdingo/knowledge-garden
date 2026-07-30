@@ -7,6 +7,7 @@ import type {
   StudioRestorePreview,
 } from "../../domain/studio";
 import { studioRequest } from "../studio-client";
+import { ConfirmationDialog } from "../components/confirmation-dialog";
 
 type RestoreResponse = StudioRestorePreview & { error?: string; restoredRows?: number };
 
@@ -20,6 +21,7 @@ export function BackupManager({
   const [preview, setPreview] = useState<StudioRestorePreview | null>(null);
   const [restorePoints, setRestorePoints] = useState(initialRestorePoints);
   const [confirmation, setConfirmation] = useState("");
+  const [pendingRestorePoint, setPendingRestorePoint] = useState<StudioRestorePoint | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -47,7 +49,10 @@ export function BackupManager({
         setSnapshot(null);
         setFileName("");
         setConfirmation("");
-        await refreshRestorePoints();
+        const refreshed = await refreshRestorePoints();
+        if (!refreshed) {
+          setMessage(`恢复完成，共写入 ${payload.restoredRows ?? preview?.totalRows ?? 0} 条记录；安全点列表暂未刷新，重新打开页面即可查看。`);
+        }
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法处理这个备份。");
@@ -56,13 +61,18 @@ export function BackupManager({
     }
   }
 
-  async function refreshRestorePoints() {
-    const payload = await studioRequest<{ restorePoints?: StudioRestorePoint[] }>(
-      "/api/studio/restore-points",
-      undefined,
-      "无法刷新安全点。",
-    );
-    if (payload.restorePoints) setRestorePoints(payload.restorePoints);
+  async function refreshRestorePoints(): Promise<boolean> {
+    try {
+      const payload = await studioRequest<{ restorePoints?: StudioRestorePoint[] }>(
+        "/api/studio/restore-points",
+        undefined,
+        "无法刷新安全点。",
+      );
+      if (payload.restorePoints) setRestorePoints(payload.restorePoints);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async function chooseFile(file: File | undefined) {
@@ -87,9 +97,6 @@ export function BackupManager({
   }
 
   async function restoreSavedPoint(point: StudioRestorePoint) {
-    if (!window.confirm(`恢复到 ${point.createdAt} 的安全点？当前状态会先生成新的安全点。`)) {
-      return;
-    }
     setBusy(true);
     setMessage("");
     try {
@@ -103,15 +110,20 @@ export function BackupManager({
         "无法恢复安全点。",
       );
       setMessage(`安全点已恢复，共写入 ${payload.restoredRows ?? 0} 条记录。`);
-      await refreshRestorePoints();
+      const refreshed = await refreshRestorePoints();
+      if (!refreshed) {
+        setMessage(`安全点已恢复，共写入 ${payload.restoredRows ?? 0} 条记录；安全点列表暂未刷新，重新打开页面即可查看。`);
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法恢复安全点。");
     } finally {
       setBusy(false);
+      setPendingRestorePoint(null);
     }
   }
 
   return (
+    <>
     <div className="studio-dashboard-grid studio-backup-grid">
       <section className="studio-form-section" aria-labelledby="restore-title">
         <header>
@@ -189,7 +201,7 @@ export function BackupManager({
               type="button"
               disabled={busy}
               key={point.id}
-              onClick={() => void restoreSavedPoint(point)}
+              onClick={() => setPendingRestorePoint(point)}
             >
               <span>{point.createdAt.replace("T", " ").slice(0, 19)} UTC</span>
               <small>恢复此状态</small>
@@ -199,5 +211,19 @@ export function BackupManager({
         </div>
       </aside>
     </div>
+    <ConfirmationDialog
+      open={Boolean(pendingRestorePoint)}
+      title="恢复这个安全点？"
+      description={`将恢复到 ${pendingRestorePoint?.createdAt.replace("T", " ").slice(0, 19) ?? ""} UTC。当前数据库会先自动生成新的安全点。`}
+      confirmLabel="确认恢复"
+      busyLabel="恢复中…"
+      busy={busy}
+      danger
+      onCancel={() => setPendingRestorePoint(null)}
+      onConfirm={() => {
+        if (pendingRestorePoint) void restoreSavedPoint(pendingRestorePoint);
+      }}
+    />
+    </>
   );
 }

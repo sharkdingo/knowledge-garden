@@ -170,7 +170,7 @@ export function ProjectEditor({
   }
 
   return (
-    <form className="studio-editor" onSubmit={save}>
+    <form className="studio-editor" aria-busy={saving} onSubmit={save}>
       <div className="studio-editor-toolbar">
         <div>
           <span className={dirty ? "dirty" : ""} aria-hidden="true" />
@@ -192,6 +192,7 @@ export function ProjectEditor({
 
       <p className="studio-form-message" role="status" aria-live="polite">{message}</p>
 
+      <fieldset className="studio-editor-fields" disabled={saving}>
       {preview ? (
         <section className="studio-live-preview" aria-label="项目卡片预览">
           <p className="eyebrow">LIVE PREVIEW</p>
@@ -235,6 +236,7 @@ export function ProjectEditor({
           <button type="button" onClick={() => setArchiveOpen(true)}>归档项目</button>
         </section>
       )}
+      </fieldset>
 
       <ConfirmationDialog
         open={archiveOpen}

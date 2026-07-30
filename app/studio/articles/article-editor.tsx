@@ -511,7 +511,12 @@ export function ArticleEditor({
           : "有未保存更改";
 
   return (
-    <form className="studio-editor" noValidate onSubmit={(event) => { event.preventDefault(); void save(); }}>
+    <form
+      className="studio-editor"
+      noValidate
+      aria-busy={saving}
+      onSubmit={(event) => { event.preventDefault(); void save(); }}
+    >
       <div className="studio-editor-toolbar">
         <div>
           <span className={dirty ? "dirty" : ""} aria-hidden="true" />
@@ -554,6 +559,7 @@ export function ArticleEditor({
 
       <p className="studio-form-message" role="status" aria-live="polite">{message}</p>
 
+      <fieldset className="studio-editor-fields" disabled={saving}>
       {recovery && (
         <aside className="studio-recovery" aria-label="未保存内容恢复">
           <div>
@@ -699,6 +705,7 @@ export function ArticleEditor({
           <button type="button" onClick={() => setConfirmation("archive")}>归档文章</button>
         </section>
       )}
+      </fieldset>
 
       <ConfirmationDialog
         open={Boolean(confirmationCopy)}

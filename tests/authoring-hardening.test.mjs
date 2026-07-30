@@ -58,3 +58,35 @@ test("backup restore is previewed, confirmed and protected by a restore point", 
   assert.match(page, /预演恢复/);
   assert.match(workflow, /npm run test:http/);
 });
+
+test("owner workflows do not misreport in-flight edits or destructive outcomes", async () => {
+  const [
+    articleEditor,
+    problemEditor,
+    projectEditor,
+    siteEditor,
+    categoryManager,
+    backupManager,
+    confirmationDialog,
+  ] = await Promise.all([
+    readFile("app/studio/articles/article-editor.tsx", "utf8"),
+    readFile("app/studio/problems/problem-editor.tsx", "utf8"),
+    readFile("app/studio/projects/project-editor.tsx", "utf8"),
+    readFile("app/studio/site/site-editor.tsx", "utf8"),
+    readFile("app/studio/categories/category-manager.tsx", "utf8"),
+    readFile("app/studio/backup/backup-manager.tsx", "utf8"),
+    readFile("app/studio/components/confirmation-dialog.tsx", "utf8"),
+  ]);
+
+  for (const editor of [articleEditor, problemEditor, projectEditor, siteEditor]) {
+    assert.match(editor, /aria-busy=\{saving\}/);
+    assert.match(editor, /className="studio-editor-fields" disabled=\{saving\}/);
+  }
+  assert.match(categoryManager, /aria-busy=\{busy\}/);
+  assert.match(categoryManager, /className="studio-category-form-fields" disabled=\{busy\}/);
+  assert.doesNotMatch(`${categoryManager}\n${backupManager}`, /window\.confirm/);
+  assert.match(backupManager, /安全点列表暂未刷新，重新打开页面即可查看/);
+  assert.match(categoryManager, /<ConfirmationDialog/);
+  assert.match(backupManager, /<ConfirmationDialog/);
+  assert.match(confirmationDialog, /onCancelRef\.current\(\)/);
+});

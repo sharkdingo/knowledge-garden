@@ -164,11 +164,42 @@ try {
     }),
   }, 201);
 
+  await request("/api/studio/categories", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: "http-unused",
+      name: "待整理",
+      description: "验证可逆的分类维护流程。",
+      sortOrder: 20,
+    }),
+  }, 201);
+  await request("/api/studio/categories/http-unused", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: "http-unused",
+      name: "暂存分类",
+      description: "验证分类更新与删除。",
+      sortOrder: 21,
+    }),
+  });
+  await request("/api/studio/categories/http-unused", { method: "DELETE" });
+
   await request("/api/studio/articles", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(article),
   }, 201);
+
+  await request("/api/studio/categories/http-engineering", { method: "DELETE" }, 409);
+  await request("/api/studio/articles/http-journey/draft", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...article, summary: "尚未提交的自动保存内容。" }),
+  });
+  const draftBackup = await request("/api/studio/export");
+  assert.equal(draftBackup.tables.article_drafts.length, 1);
 
   const published = await request("/writing/http-journey");
   assert.match(published, /真实 HTTP 旅程/);
@@ -208,12 +239,26 @@ try {
     body: JSON.stringify({ ...article, summary: "已经通过第一次并发安全更新。" }),
   });
   assert.equal(updated.version, 2);
+  const postSaveBackup = await request("/api/studio/export");
+  assert.equal(postSaveBackup.tables.article_drafts.length, 0);
+
+  const revisionList = await request("/api/studio/articles/http-journey/revisions");
+  assert.ok(revisionList.revisions.length > 0);
+  const restoredRevision = await request("/api/studio/articles/http-journey/revisions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "If-Match": "2",
+    },
+    body: JSON.stringify({ revisionId: revisionList.revisions[0].id }),
+  });
+  assert.equal(restoredRevision.article.version, 3);
 
   await request("/api/studio/articles/http-journey", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      "If-Match": "1",
+      "If-Match": "2",
     },
     body: JSON.stringify({ ...article, summary: "这次陈旧更新必须被拒绝。" }),
   }, 409);
@@ -266,7 +311,7 @@ try {
 
   await request("/api/studio/articles/http-journey", {
     method: "DELETE",
-    headers: { "If-Match": "2" },
+    headers: { "If-Match": "3" },
   });
   await request("/api/studio/projects/http-project", {
     method: "DELETE",
@@ -314,7 +359,7 @@ try {
   await request("/writing/http-journey");
 
   console.log(
-    "HTTP journey passed: authoring, discovery, engagement, conflicts, archive and safe restore.",
+    "HTTP journey passed: categories, autosave, revisions, publishing, discovery, engagement, conflicts, archive and safe restore.",
   );
 } finally {
   const stopServer = (signal) => {

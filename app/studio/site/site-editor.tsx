@@ -362,7 +362,7 @@ export function SiteEditor({ initial }: { initial: StudioSiteSettings }) {
   }
 
   return (
-    <form className="studio-editor site-editor" onSubmit={save}>
+    <form className="studio-editor site-editor" aria-busy={saving} onSubmit={save}>
       <div className="studio-editor-toolbar">
         <div><span className={dirty ? "dirty" : ""} aria-hidden="true" /><p>{dirty ? "有未保存更改" : "全部更改已保存"}</p></div>
         <button className="button button-primary" type="submit" disabled={saving || !dirty}>
@@ -371,6 +371,7 @@ export function SiteEditor({ initial }: { initial: StudioSiteSettings }) {
       </div>
       <p className="studio-form-message" role="status" aria-live="polite">{message}</p>
 
+      <fieldset className="studio-editor-fields" disabled={saving}>
       <section className="studio-form-section" aria-labelledby="hero-settings-title">
         <header><p className="eyebrow">HERO</p><h2 id="hero-settings-title">首页首屏</h2></header>
         <div className="studio-form-grid">
@@ -948,6 +949,7 @@ export function SiteEditor({ initial }: { initial: StudioSiteSettings }) {
         </div>
         <p className="studio-help">保存时会验证颜色格式；正文与背景的可读性仍由固定中性色令牌保证。</p>
       </section>
+      </fieldset>
     </form>
   );
 }

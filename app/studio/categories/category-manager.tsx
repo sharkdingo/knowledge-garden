@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { StudioCategory } from "../../domain/studio";
 import { studioRequest } from "../studio-client";
+import { ConfirmationDialog } from "../components/confirmation-dialog";
 
 type Draft = Pick<StudioCategory, "id" | "name" | "description" | "sortOrder">;
 const EMPTY: Draft = { id: "", name: "", description: "", sortOrder: 0 };
@@ -10,6 +11,7 @@ const EMPTY: Draft = { id: "", name: "", description: "", sortOrder: 0 };
 export function CategoryManager({ initialCategories }: { initialCategories: StudioCategory[] }) {
   const [categories, setCategories] = useState(initialCategories);
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [pendingDeleteId, setPendingDeleteId] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -49,7 +51,6 @@ export function CategoryManager({ initialCategories }: { initialCategories: Stud
   }
 
   async function remove(id: string) {
-    if (!window.confirm("确认删除这个未使用的分类？")) return;
     setBusy(true);
     setMessage("");
     try {
@@ -65,10 +66,14 @@ export function CategoryManager({ initialCategories }: { initialCategories: Stud
       setMessage(error instanceof Error ? error.message : "删除分类失败。");
     } finally {
       setBusy(false);
+      setPendingDeleteId("");
     }
   }
 
+  const pendingCategory = categories.find((category) => category.id === pendingDeleteId);
+
   return (
+    <>
     <section className="studio-category-layout">
       <div className="studio-category-list">
         {categories.map((category) => (
@@ -78,22 +83,38 @@ export function CategoryManager({ initialCategories }: { initialCategories: Stud
               <small>{category.description || "暂无说明"} · {category.articleCount} 篇文章</small>
             </div>
             <button type="button" onClick={() => setDraft(category)}>编辑</button>
-            <button type="button" disabled={busy || category.articleCount > 0} onClick={() => void remove(category.id)}>
+            <button type="button" disabled={busy || category.articleCount > 0} onClick={() => setPendingDeleteId(category.id)}>
               删除
             </button>
           </article>
         ))}
         {!categories.length && <div className="studio-empty compact"><strong>先创建第一个分类</strong><p>例如「工程实践」或「算法题解」，之后即可创建文章。</p></div>}
       </div>
-      <form className="studio-category-form" onSubmit={(event) => { event.preventDefault(); void save(); }}>
+      <form className="studio-category-form" aria-busy={busy} onSubmit={(event) => { event.preventDefault(); void save(); }}>
         <h2>{categories.some((item) => item.id === draft.id) ? "编辑分类" : "新建分类"}</h2>
-        <label>ID<input value={draft.id} disabled={categories.some((item) => item.id === draft.id)} onChange={(event) => setDraft({ ...draft, id: event.target.value })} placeholder="engineering" /></label>
-        <label>名称<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
-        <label>说明<textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
-        <label>排序<input type="number" min="0" max="9999" value={draft.sortOrder} onChange={(event) => setDraft({ ...draft, sortOrder: Number(event.target.value) })} /></label>
-        <div><button className="button button-primary" disabled={busy} type="submit">{busy ? "保存中…" : "保存分类"}</button><button type="button" onClick={() => setDraft(EMPTY)}>清空</button></div>
+        <fieldset className="studio-category-form-fields" disabled={busy}>
+          <label>ID<input value={draft.id} disabled={categories.some((item) => item.id === draft.id)} onChange={(event) => setDraft({ ...draft, id: event.target.value })} placeholder="engineering" /></label>
+          <label>名称<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
+          <label>说明<textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
+          <label>排序<input type="number" min="0" max="9999" value={draft.sortOrder} onChange={(event) => setDraft({ ...draft, sortOrder: Number(event.target.value) })} /></label>
+          <div><button className="button button-primary" type="submit">{busy ? "保存中…" : "保存分类"}</button><button type="button" onClick={() => setDraft(EMPTY)}>清空</button></div>
+        </fieldset>
         <p role="status" aria-live="polite">{message}</p>
       </form>
     </section>
+    <ConfirmationDialog
+      open={Boolean(pendingCategory)}
+      title="删除这个分类？"
+      description={`“${pendingCategory?.name ?? ""}”当前没有文章使用。删除后无法撤销。`}
+      confirmLabel="删除分类"
+      busyLabel="删除中…"
+      busy={busy}
+      danger
+      onCancel={() => setPendingDeleteId("")}
+      onConfirm={() => {
+        if (pendingDeleteId) void remove(pendingDeleteId);
+      }}
+    />
+    </>
   );
 }

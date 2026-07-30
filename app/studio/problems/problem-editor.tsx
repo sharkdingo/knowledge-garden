@@ -410,6 +410,7 @@ export function ProblemEditor({
         ref={formRef}
         className="studio-editor problem-editor"
         noValidate
+        aria-busy={saving}
         onSubmit={(event) => {
           event.preventDefault();
           void save(state.status === "published" ? "published" : "draft");
@@ -436,6 +437,7 @@ export function ProblemEditor({
         </div>
         <p className="studio-form-message" role="status" aria-live="polite">{message}</p>
 
+        <fieldset className="studio-editor-fields" disabled={saving}>
         <section className="studio-form-section" aria-labelledby="problem-basic-title">
           <header><p className="eyebrow">PROBLEM</p><h2 id="problem-basic-title">题目信息</h2></header>
           <div className="studio-form-grid">
@@ -605,6 +607,7 @@ export function ProblemEditor({
             <button type="button" disabled={saving} onClick={() => setConfirmation("archive")}>归档</button>
           </section>
         )}
+        </fieldset>
       </form>
 
       <ConfirmationDialog
