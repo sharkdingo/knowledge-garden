@@ -72,17 +72,19 @@ test("the public notebook is persistent, searchable, and deeply readable", async
 });
 
 test("Studio provides an authorized and recoverable algorithm publishing loop", async () => {
-  const [collectionRoute, itemRoute, editor, service, shell, siteEditor] = await Promise.all([
+  const [collectionRoute, itemRoute, editor, service, shell, siteEditor, unsavedChanges] = await Promise.all([
     readFile("app/api/studio/problems/route.ts", "utf8"),
     readFile("app/api/studio/problems/[slug]/route.ts", "utf8"),
     readFile("app/studio/problems/problem-editor.tsx", "utf8"),
     readFile("app/application/studio-algorithm-service.ts", "utf8"),
     readFile("app/studio/studio-shell.tsx", "utf8"),
     readFile("app/studio/site/site-editor.tsx", "utf8"),
+    readFile("app/studio/components/unsaved-changes.tsx", "utf8"),
   ]);
   assert.match(collectionRoute, /authorizeStudioApi/);
   assert.match(itemRoute, /authorizeStudioApi/);
-  assert.match(editor, /beforeunload/);
+  assert.match(editor, /useStudioUnsavedChanges/);
+  assert.match(unsavedChanges, /beforeunload/);
   assert.match(editor, /crypto\.randomUUID/);
   assert.match(editor, /noValidate/);
   assert.match(editor, /data-draft-required/);

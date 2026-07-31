@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ChatGPTUser } from "../chatgpt-auth";
 import { chatGPTSignOutPath } from "../chatgpt-auth";
 import { StudioNavigation } from "./studio-navigation";
+import { StudioUnsavedChangesBoundary } from "./components/unsaved-changes";
 
 const navigation = [
   { id: "overview", href: "/studio", label: "概览" },
@@ -23,7 +24,7 @@ export function StudioShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="studio-root">
+    <StudioUnsavedChangesBoundary>
       <a className="skip-link" href="#studio-content">跳到管理内容</a>
       <header className="studio-header">
         <div className="studio-header-inner">
@@ -45,6 +46,6 @@ export function StudioShell({
         </div>
       </header>
       <main id="studio-content" className="studio-main">{children}</main>
-    </div>
+    </StudioUnsavedChangesBoundary>
   );
 }

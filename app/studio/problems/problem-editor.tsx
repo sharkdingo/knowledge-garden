@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AlgorithmAuthoringConfig, AlgorithmReference } from "../../domain/content";
 import type {
@@ -11,6 +11,7 @@ import type {
 } from "../../domain/studio";
 import { studioRequest } from "../studio-client";
 import { ConfirmationDialog } from "../components/confirmation-dialog";
+import { useStudioUnsavedChanges } from "../components/unsaved-changes";
 
 type Confirmation = "publish" | "unpublish" | "archive" | null;
 
@@ -115,14 +116,7 @@ export function ProblemEditor({
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const isNew = problem === null;
 
-  useEffect(() => {
-    const preventLoss = (event: BeforeUnloadEvent) => {
-      if (!dirty) return;
-      event.preventDefault();
-    };
-    window.addEventListener("beforeunload", preventLoss);
-    return () => window.removeEventListener("beforeunload", preventLoss);
-  }, [dirty]);
+  useStudioUnsavedChanges(dirty);
 
   function patch<K extends keyof StudioAlgorithmProblemInput>(
     key: K,

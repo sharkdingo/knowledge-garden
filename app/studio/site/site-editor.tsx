@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { StudioSiteSettings } from "../../domain/studio";
 import { studioRequest } from "../studio-client";
+import { useStudioUnsavedChanges } from "../components/unsaved-changes";
 
 export function SiteEditor({ initial }: { initial: StudioSiteSettings }) {
   const [settings, setSettings] = useState(initial);
@@ -10,14 +11,7 @@ export function SiteEditor({ initial }: { initial: StudioSiteSettings }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    const preventLoss = (event: BeforeUnloadEvent) => {
-      if (!dirty) return;
-      event.preventDefault();
-    };
-    window.addEventListener("beforeunload", preventLoss);
-    return () => window.removeEventListener("beforeunload", preventLoss);
-  }, [dirty]);
+  useStudioUnsavedChanges(dirty);
 
   function hero<K extends keyof StudioSiteSettings["hero"]>(
     key: K,

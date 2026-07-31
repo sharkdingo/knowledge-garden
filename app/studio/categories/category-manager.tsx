@@ -15,13 +15,19 @@ export function CategoryManager({ initialCategories }: { initialCategories: Stud
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
-  async function refresh() {
-    const payload = await studioRequest<{ categories?: StudioCategory[] }>(
-      "/api/studio/categories",
-      undefined,
-      "无法刷新分类列表。",
-    );
-    if (payload.categories) setCategories(payload.categories);
+  async function refresh(): Promise<boolean> {
+    try {
+      const payload = await studioRequest<{ categories?: StudioCategory[] }>(
+        "/api/studio/categories",
+        undefined,
+        "无法刷新分类列表。",
+      );
+      if (!payload.categories) return false;
+      setCategories(payload.categories);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async function save() {
@@ -40,9 +46,13 @@ export function CategoryManager({ initialCategories }: { initialCategories: Stud
         },
         "保存分类失败。",
       );
-      await refresh();
+      const refreshed = await refresh();
       setDraft(EMPTY);
-      setMessage(existing ? "分类已更新。" : "分类已创建，现在可以用于文章。");
+      setMessage(
+        refreshed
+          ? existing ? "分类已更新。" : "分类已创建，现在可以用于文章。"
+          : `${existing ? "分类已更新" : "分类已创建"}，但列表暂未刷新；重新打开页面即可查看。`,
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "保存分类失败。");
     } finally {
@@ -59,9 +69,14 @@ export function CategoryManager({ initialCategories }: { initialCategories: Stud
         { method: "DELETE" },
         "删除分类失败。",
       );
-      await refresh();
+      const refreshed = await refresh();
       if (draft.id === id) setDraft(EMPTY);
-      setMessage("分类已删除。");
+      if (refreshed) {
+        setMessage("分类已删除。");
+      } else {
+        setCategories((current) => current.filter((category) => category.id !== id));
+        setMessage("分类已删除，但列表暂未完整刷新；重新打开页面即可确认最新状态。");
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "删除分类失败。");
     } finally {
@@ -82,7 +97,7 @@ export function CategoryManager({ initialCategories }: { initialCategories: Stud
               <strong>{category.name}</strong>
               <small>{category.description || "暂无说明"} · {category.articleCount} 篇文章</small>
             </div>
-            <button type="button" onClick={() => setDraft(category)}>编辑</button>
+            <button type="button" disabled={busy} onClick={() => setDraft(category)}>编辑</button>
             <button type="button" disabled={busy || category.articleCount > 0} onClick={() => setPendingDeleteId(category.id)}>
               删除
             </button>

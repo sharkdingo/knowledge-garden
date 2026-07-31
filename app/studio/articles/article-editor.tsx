@@ -13,6 +13,7 @@ import type {
 import { studioRequest } from "../studio-client";
 import { isScheduledArticleLive } from "../../domain/studio";
 import { ConfirmationDialog } from "../components/confirmation-dialog";
+import { useStudioUnsavedChanges } from "../components/unsaved-changes";
 
 type EditorSection = { id: string; title: string; body: string };
 type ArticleStatus = StudioArticle["status"];
@@ -247,14 +248,7 @@ export function ArticleEditor({
   );
   const isPublic = state.status === "published" || scheduledIsLive;
 
-  useEffect(() => {
-    const preventLoss = (event: BeforeUnloadEvent) => {
-      if (!dirty) return;
-      event.preventDefault();
-    };
-    window.addEventListener("beforeunload", preventLoss);
-    return () => window.removeEventListener("beforeunload", preventLoss);
-  }, [dirty]);
+  useStudioUnsavedChanges(dirty);
 
   useEffect(() => {
     let recoveryTimer: number | undefined;

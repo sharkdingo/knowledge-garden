@@ -21,7 +21,6 @@ test("all primary editors use optimistic concurrency with guarded relation write
     assert.match(editor, /"If-Match"/);
   }
 });
-
 test("Studio mutations enforce request boundaries and record privacy-safe audit events", async () => {
   const [request, auth, audit, articleRoute, categoryRoute] = await Promise.all([
     readFile("app/studio/studio-request.ts", "utf8"),
@@ -68,6 +67,8 @@ test("owner workflows do not misreport in-flight edits or destructive outcomes",
     categoryManager,
     backupManager,
     confirmationDialog,
+    unsavedChanges,
+    studioShell,
   ] = await Promise.all([
     readFile("app/studio/articles/article-editor.tsx", "utf8"),
     readFile("app/studio/problems/problem-editor.tsx", "utf8"),
@@ -76,6 +77,8 @@ test("owner workflows do not misreport in-flight edits or destructive outcomes",
     readFile("app/studio/categories/category-manager.tsx", "utf8"),
     readFile("app/studio/backup/backup-manager.tsx", "utf8"),
     readFile("app/studio/components/confirmation-dialog.tsx", "utf8"),
+    readFile("app/studio/components/unsaved-changes.tsx", "utf8"),
+    readFile("app/studio/studio-shell.tsx", "utf8"),
   ]);
 
   for (const editor of [articleEditor, problemEditor, projectEditor, siteEditor]) {
@@ -89,4 +92,10 @@ test("owner workflows do not misreport in-flight edits or destructive outcomes",
   assert.match(categoryManager, /<ConfirmationDialog/);
   assert.match(backupManager, /<ConfirmationDialog/);
   assert.match(confirmationDialog, /onCancelRef\.current\(\)/);
+  assert.match(confirmationDialog, /busyRef\.current/);
+  assert.match(unsavedChanges, /beforeunload/);
+  assert.match(unsavedChanges, /onClickCapture/);
+  assert.match(unsavedChanges, /放弃更改并离开/);
+  assert.match(studioShell, /StudioUnsavedChangesBoundary/);
+  assert.match(categoryManager, /但列表暂未刷新/);
 });

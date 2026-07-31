@@ -27,6 +27,7 @@ export function ConfirmationDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const onCancelRef = useRef(onCancel);
+  const busyRef = useRef(busy);
   useOverlayEnvironment({ active: open, bodyClass: "dialog-open", isolate: ".studio-root" });
 
   useEffect(() => {
@@ -34,11 +35,15 @@ export function ConfirmationDialog({
   }, [onCancel]);
 
   useEffect(() => {
+    busyRef.current = busy;
+  }, [busy]);
+
+  useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     const frame = window.requestAnimationFrame(() => cancelRef.current?.focus());
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) onCancelRef.current();
+      if (event.key === "Escape" && !busyRef.current) onCancelRef.current();
       if (event.key !== "Tab" || !dialogRef.current) return;
       const controls = [...dialogRef.current.querySelectorAll<HTMLElement>(
         "button:not(:disabled), a[href], input:not(:disabled)",
@@ -59,7 +64,7 @@ export function ConfirmationDialog({
       window.removeEventListener("keydown", onKeyDown);
       previous?.focus();
     };
-  }, [busy, open]);
+  }, [open]);
 
   if (!open) return null;
 

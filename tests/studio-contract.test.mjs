@@ -40,13 +40,15 @@ test("Studio follows the application boundary instead of writing D1 from pages",
 });
 
 test("article editing protects work and uses recoverable lifecycle actions", async () => {
-  const [editor, dialog, service, repository] = await Promise.all([
+  const [editor, dialog, unsavedChanges, service, repository] = await Promise.all([
     readFile("app/studio/articles/article-editor.tsx", "utf8"),
     readFile("app/studio/components/confirmation-dialog.tsx", "utf8"),
+    readFile("app/studio/components/unsaved-changes.tsx", "utf8"),
     readFile("app/application/studio-article-service.ts", "utf8"),
     readFile("app/infrastructure/d1-studio-repository.ts", "utf8"),
   ]);
-  assert.match(editor, /beforeunload/);
+  assert.match(editor, /useStudioUnsavedChanges/);
+  assert.match(unsavedChanges, /beforeunload/);
   assert.match(editor, /localStorage/);
   assert.match(editor, /studio-live-preview/);
   assert.match(dialog, /role="alertdialog"/);

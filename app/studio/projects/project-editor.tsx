@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   StudioArticleSummary,
@@ -11,6 +11,7 @@ import { isScheduledArticleLive } from "../../domain/studio";
 import { ProjectVisual } from "../../components/project-visual";
 import { studioRequest } from "../studio-client";
 import { ConfirmationDialog } from "../components/confirmation-dialog";
+import { useStudioUnsavedChanges } from "../components/unsaved-changes";
 
 type EditorState = {
   id: string;
@@ -96,14 +97,7 @@ export function ProjectEditor({
   const [archiveOpen, setArchiveOpen] = useState(false);
   const isNew = project === null;
 
-  useEffect(() => {
-    const preventLoss = (event: BeforeUnloadEvent) => {
-      if (!dirty) return;
-      event.preventDefault();
-    };
-    window.addEventListener("beforeunload", preventLoss);
-    return () => window.removeEventListener("beforeunload", preventLoss);
-  }, [dirty]);
+  useStudioUnsavedChanges(dirty);
 
   function patch<K extends keyof EditorState>(key: K, value: EditorState[K]) {
     setState((current) => ({ ...current, [key]: value }));
